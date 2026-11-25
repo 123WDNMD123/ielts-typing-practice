@@ -6,7 +6,7 @@
 
 - **在线体验**：<http://47.120.61.237:8000/>
 - **技术栈**：Python 3 标准库 · SQLite · 原生 HTML/CSS/JS（Web Animations API / Canvas / WebAudio）
-- **当前发布版本**：[**v1.7**](https://github.com/123WDNMD123/ielts-typing-practice/releases/latest) · [全部版本](https://github.com/123WDNMD123/ielts-typing-practice/releases)
+- **当前发布版本**：[**v1.7.1**](https://github.com/123WDNMD123/ielts-typing-practice/releases/latest) · [全部版本](https://github.com/123WDNMD123/ielts-typing-practice/releases)
 
 ---
 
@@ -44,7 +44,7 @@
 ### 打字体验
 
 - **两段式专注模式**：选定项目进入半专注（侧栏滑出、页头淡出），敲下第一键进入全屏；`Esc` 或退出钮逐级降级，切换页面、完成练习或重置时自动退出。
-- **一镜到底的镜头过渡**：三档（正常 / 半专注 / 全屏）之间由单一 rAF 时钟驱动，卡片外框 `left/top/width/height` 全程连续插值，页头、键盘、辅助信息同拍淡入淡出，落定瞬间零几何突跳；不使用整卡 `scale`，文字字号恒定、无拉伸畸变。飞行中再次切换会从当前视觉状态续接，不重新起跳。
+- **一镜到底的镜头过渡**：三档（正常 / 半专注 / 全屏）之间由单一 rAF 时钟驱动，卡片外框 `left/top/width/height` 全程连续插值，**文本区、辅助行、曲线、进度条与外框同拍伸缩**（宽高每帧由外框推导，组件始终贴合边框内缘），页头、键盘、辅助信息同拍淡入淡出，落定瞬间零几何突跳；不使用整卡 `scale`，文字字号恒定、无拉伸畸变。飞行中再次切换会从当前视觉状态续接，不重新起跳。
 - **实时 WPM 曲线**：Canvas 采样绘制，约 1 秒一个点（上限 240 点），页面不可见时自动暂停。
 - **按键音效**：WebAudio 实时合成，三种风格（柔和 / 机械 / 打字机），错键低音、退格与完成音区分，默认开启柔和档。
 - **成绩分享卡**：Canvas 生成 1200×675 PNG，含 WPM、准确率、用时、昵称与连续打卡天数，可下载。
@@ -129,7 +129,7 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 | `*.tar.gz` | 发布归档改由 **Release 附件**分发，避免仓库随发布持续膨胀 |
 | `.workbuddy-ai/` | 本机工具与项目记忆数据 |
 
-历次发布归档请到 [Releases](https://github.com/123WDNMD123/ielts-typing-practice/releases) 下载，命名形如 `typing-practice-v1.7.tar.gz`（仅三份源码，**不含数据库**）。v1.0 之前的提交中仍可追溯早期归档文件。
+历次发布归档请到 [Releases](https://github.com/123WDNMD123/ielts-typing-practice/releases) 下载，命名形如 `typing-practice-v1.7.tar.gz` / `typing-practice-v1.7.1.tar.gz`（仅三份源码，**不含数据库**）。v1.0 之前的提交中仍可追溯早期归档文件。
 
 ---
 
@@ -227,11 +227,14 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 镜头过渡（focusDolly）另有两条来自 CDP tracing 实测的约束：
 
 - **逐帧改外框尺寸的代价在 Paint 而非 Layout**。实测 Layout 均 0.70ms/帧，Paint 均 6.83ms/帧——整卡（约 500 字符 + 背景 + 阴影）每帧重绘。把卡片与文本区各自 `translateZ(0)` 提层后 Paint 降至 2.73ms（−60%）。`will-change` **只列 `transform`/`opacity`**：`left/top/width/height` 不可合成，列上去反而强制重绘。
-- **文本区内容宽度钉死**：飞行期间文本区改为 `content-box` 并锁定起点内容盒宽，宽度插值不触发长文重新换行，从而「既连续又满帧」。
+- **内部组件必须与外框同拍插值**：文本区宽度取当帧卡片内容盒宽，高度取当帧内容盒高减去辅助行、曲线、进度条的占用；padding、border 四边、圆角、各组件外边距与高度全部一起插值，曲线画布每帧按当帧尺寸重绘。宽高一律向下取整（浏览器把元素宽向上取整到布局像素，否则右缘/底缘会越界 1px）。
+- **插值两端都必须是真实静态布局**：目标态用量测窗口内的真实几何，隐藏的辅助行用离屏克隆探针补自然高度，落定后才不会突跳。
 
-> 反面教训：为保帧率而冻结内部布局，会把几何突跳挪到落定瞬间（实测残留 94–198px 宽 / 72–213px 高），本质上仍是「第二次起跳」。因此**落定突跳必须单独量测**，只断言飞行帧会漏判。
+> 反面教训（两条都踩过）：为保帧率而**冻结内部布局**，一是把几何突跳挪到落定瞬间（残留 94–198px 宽 / 72–213px 高），二是让飞行中的组件与外框脱节——实测拉远时文本区/曲线/进度条穿出边框达 102.7 / 116.7 / 130.7px，推近时右缘留白 200px、底部留白 160.7px。因此**落定突跳**与**逐帧边框位置关系**必须分别量测，只断言飞行帧的平均帧率会两头都漏判。
 
-本地实测（Edge headless，rAF 帧间隔采样 + longtask 观测）：空闲、半专注、全屏打字、分享弹窗、动效关闭五种场景均 ≈60fps，p95 帧间隔 ≤16.8ms，零长任务；五段镜头飞行 55–62fps，四段落定突跳 `dw=0 / dh=0`。生产站点真实浏览器复测同样达标。
+边框位置关系用逐帧几何探针守四条不变量：子组件都在卡片 border-box 内、组件右缘贴合卡片右内缘、末组件底缘贴合卡片底内缘、文本区宽等于卡片内容宽（容差 4px，吸收分数 border 宽被取整到 1px 的系统性噪声）。
+
+本地实测（Edge headless，rAF 帧间隔采样 + longtask 观测）：空闲、半专注、全屏打字、分享弹窗、动效关闭五种场景均 ≈60fps，p95 帧间隔 ≤16.8ms，零长任务；五段镜头飞行 55–62fps，四段落定突跳 `dw=0 / dh=0`，四段边框不变量违规数 0。生产站点真实浏览器复测同样达标。
 
 ---
 
@@ -242,8 +245,8 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 发布包只包含三份源码（`server.py`、`index.server.html`、`update-typing.server.sh`），**绝不携带数据库**。
 
 ```bash
-# 1. 本地打包（文件名用即将发布的小版本号）
-tar -czf typing-practice-vX.Y.tar.gz \
+# 1. 本地打包（文件名用即将发布的版本号：功能版 vX.Y / 补丁版 vX.Y.Z）
+tar -czf typing-practice-vX.Y.Z.tar.gz \
   -C server-source server.py index.server.html update-typing.server.sh
 
 # 2. 传到服务器独立暂存目录并校验哈希
@@ -266,29 +269,37 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 
 发布后建议复验：公网 `GET`/`HEAD` 状态与内容哈希、`gzip` 压缩、`ETag` 304、访客接口，以及一次真实浏览器登录练习冒烟。
 
-复验通过后，按[版本管理约定](#版本管理与发布记录)创建下一个小版本号的 Release，并把归档作为附件上传（归档本身不提交进仓库）。
+复验通过后，按[版本管理约定](#版本管理与发布记录)创建对应版本号的 Release（新功能进位 `vX.Y`，纯缺陷修复用补丁号 `vX.Y.Z`），并把归档作为附件上传（归档本身不提交进仓库）。
 
 ---
 
 ## 版本管理与发布记录
 
-版本以**小版本号**递增（`v1.0`、`v1.1`、`v1.2` …），通过 **GitHub Release** 发布，不再使用日期代号标签。
+版本通过 **GitHub Release** 发布，不再使用日期代号标签。号分两档：
+
+| 形态 | 用于 | 例 |
+| --- | --- | --- |
+| `v1.Y` | **功能版本**：新增能力、交互重做、结构性改动 | `v1.6`、`v1.7` |
+| `v1.Y.Z` | **补丁版本**：修既有功能的缺陷，不新增能力 | `v1.7.1` |
+
+补丁号挂在它所修复的那个功能版本下（`v1.7.1` 修的是 `v1.7` 引入的镜头过渡），同一功能版本可连续出 `.1`、`.2` …；下一个新功能仍进位到 `v1.8`。
 
 **发布约定：**
 
-1. 每次生产上线对应一个小版本号，号只增不减、不复用；
+1. 每次生产上线对应一个版本号，号只增不减、不复用；纯缺陷修复走三段补丁号，不占用功能号；
 2. Release 指向该次上线的实际提交，标签由 Release 自动创建，不单独手工打标签；
-3. 发布归档（`typing-practice-vX.Y.tar.gz`，仅三份源码）作为 **Release 附件**上传，不入仓库；
-4. 最新生产版本标记为 `latest`；
+3. 发布归档（`typing-practice-vX.Y[.Z].tar.gz`，仅三份源码）作为 **Release 附件**上传，不入仓库；
+4. 最新生产版本标记为 `latest`（补丁版上线后 `latest` 随之转移）；
 5. 改动功能后同步更新本 README 与下方版本表。
 
-> GitHub Release 在底层仍需一个 git tag 作为锚点，因此仓库中会存在 `v1.x` 标签——它们是 Release 的载体，版本标识与下载入口统一以 Release 为准。
+> GitHub Release 在底层仍需一个 git tag 作为锚点，因此仓库中会存在 `v1.x` / `v1.x.y` 标签——它们是 Release 的载体，版本标识与下载入口统一以 Release 为准。
 
 ### 发布记录
 
 | 版本 | 上线时间 | 内容 |
 | --- | --- | --- |
-| [**v1.7**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7) | 11-25 23:02 | 专注过渡重做为一镜到底（外框连续插值 + 合成层 + 文本宽度钉死，落定零突跳）＋ 统一设置菜单（外观/账号两段）＋ 修复对话框层叠导致的 Esc 误关 |
+| [**v1.7.1**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7.1) | 11-26 00:08 | 修复一镜到底飞行中组件与外框脱节：内部组件改为与外框同拍插值、文本区宽高每帧由外框推导（此前拉远穿出边框达 130.7px、推近留白 200px），四段边框不变量违规归零，落定仍零突跳、帧率不降 |
+| [v1.7](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7) | 11-25 23:02 | 专注过渡重做为一镜到底（外框连续插值 + 合成层，落定零突跳）＋ 统一设置菜单（外观/账号两段）＋ 修复对话框层叠导致的 Esc 误关 |
 | [v1.6](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.6) | 11-25 20:09 | 偏好后端同步 + 两段式专注 + 实时 WPM 曲线 + 按键音效 + 成绩分享卡 + 连续打卡接口 |
 | [v1.5](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.5) | 11-25 18:32 | 修复视效层导致的整站卡顿（18.7fps → 60fps；去 blur / 去 backdrop-filter / 纯 translate） |
 | [v1.4](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.4) | 11-25 17:55 | 动态背景光斑、噪点、卡片辉光、标题流光等高级感视效 |
@@ -300,8 +311,8 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 均为 2026 年。每个 Release 页面含完整变更说明与源码归档下载。
 
 ```bash
-git tag -l                          # 查看版本标签（v1.0 … v1.7）
-git show v1.7 --stat                # 查看某版本改动
+git tag -l                          # 查看版本标签（v1.0 … v1.7、v1.7.1）
+git show v1.7.1 --stat              # 查看某版本改动
 ```
 
 早期日期代号标签（`v2026.11.25-opt` / `studio` / `motion` / `account` / `ambience` / `perf` / `batcha` / `dolly`）已在本次规范化中移除，对应关系依次为 v1.0 → v1.7；提交历史未作任何改写。

@@ -201,8 +201,9 @@ html.focus-full #focusExit{display:block}
 html.focus-full .ambient-bg i{opacity:.7}
 /* ===== 一镜到底（focusDolly）=====
    0↔1↔2 全程由 JS 单一时钟驱动：卡片外框 left/top/width/height 连续插值（不做 scale，
-   文字永不畸变），辅助行同拍淡出并收拢高度，文本区 padding / 曲线高度同步插值，
-   于是每个字符的位置由布局自然连续移动——一个镜头推到底，没有第二次起跳。
+   文字永不畸变）。内部组件与外框同拍：文本区宽高每帧由当帧外框推导（右缘/底缘永远
+   贴边框内缘），辅助行高度/外边距、内边距/描边、曲线/进度条同步插值——
+   推近不留白缝、拉远不穿出边框，一个镜头推到底，没有第二次起跳。
    页头、侧栏、光斑、键盘、胶囊全部挂在同一条时间线上。
    飞行中（.focus-dolly）由 JS 逐帧写值，故关闭相关 CSS 过渡避免双重驱动。 */
 /* 合成层：外框逐帧改尺寸会让整卡（~500 字符 + 背景 + 阴影）重绘，实测 Paint 6.8ms/帧 → 掉帧。
@@ -2517,6 +2518,7 @@ function beginSession(mode, title, text, material, level, tokens){
   document.getElementById('stTime').textContent = S.duration ? fmtTime(S.duration) : '不限';
   renderText();
   liveCurveReset();
+  focusMeasureCacheInvalidate();   // 文本/级别变化 → 目标布局缓存失效（隐藏行自然高度依赖内容）
   // 先归零滚动再起镜：镜头终点按 scrollY=0 量测，避免起镜后再滚动导致终点错位。
   // 不用 smooth scroll——它会与逐帧镜头争抢主线程，且卡片此时已是 fixed 承载。
   window.scrollTo(0, 0);
@@ -2836,7 +2838,10 @@ function highlightNextKey(){
   }
   hint.innerHTML = html;
   live.innerHTML = html;
+  const wasShown = live.classList.contains('show');
   live.classList.add('show');
+  // 提示行从无到有会改变辅助行占用高度：目标布局缓存失效，落定后的预热帧重新量测
+  if(!wasShown) focusMeasureCacheInvalidate();
 }
 
 /* ================= 账号与主题 ================= */
@@ -3296,9 +3301,13 @@ function syncSoundUI(){
    落定帧几何与目标静态布局完全重合 —— 没有第二次起跳，也没有落定突跳。
    页头、页标题、侧栏、光斑、键盘、胶囊全部挂在同一条时间线上。
 
-   性能关键：外框长大时，把 #typeArea 的「内容宽度」钉死在起点值（focusAreaPinW）。
-   ~500 个字符的换行只取决于内容宽度，钉死后外框逐帧变化不触发文本重排，
-   于是 width/height 插值也能跑满帧；文本排版在落定帧一次性交还 CSS。
+   边框位置关系（v1.8 重写的核心）：内部组件绝不冻结在起点值——
+   文本区 border-box 宽每帧等于「当帧卡片内容盒宽」，高每帧等于「当帧内容盒高减去其余组件」，
+   辅助行高度/外边距、卡片内边距/描边、曲线/进度条尺寸全部同拍插值。
+   于是任何一帧里组件右缘/底缘都贴着边框内缘：推近不留白缝、拉远不穿出边框。
+   代价是文本随宽度逐帧换行（单次帧内布局），用合成层提层压住Paint成本，帧率门禁实测达标。
+   两端（起点/终点）都量真实静态布局（隐藏辅助行用离屏探针补自然高度，探针只在预热/起镜帧），
+   落定交还 CSS 时几何完全重合，零突跳。
    中断安全：起点取「当前已写入的视觉值」，快速连按 Esc 从现状续接。 */
 let focusLevel = 0;
 let focusDollyRaf = 0;
@@ -3333,8 +3342,10 @@ function focusAuxNatural(id, width){
   probe.remove();
   return out;
 }
-/* 采集镜头状态：卡片视口几何 + 内边距/圆角/描边 + 辅助行高度透明度 + 文本区与曲线尺寸。
-   natural=true 时把隐藏辅助行的自然高度补回（用于收拢/展开动画的另一端）。 */
+/* 采集镜头状态：卡片视口几何 + 四边内边距/描边/圆角 + 辅助行高度透明度 + 文本区/曲线/进度条尺寸。
+   natural=true 时把隐藏辅助行的自然高度用离屏探针补回（收拢/展开动画的另一端需要真实高度）。
+   边框四边单独记录：飞行中 border 宽度逐帧插值（半专注 1px ↔ 全屏 0px），
+   内部组件的可用空间必须按「当帧」的 border+padding 推导，边框与内容的位置关系才全程成立。 */
 function focusSnapshot(natural){
   const card = focusCard();
   const r = card.getBoundingClientRect();
@@ -3351,22 +3362,21 @@ function focusSnapshot(natural){
     return {id, h: el.getBoundingClientRect().height, o: focusNum(el,'opacity',1),
             mt: focusNum(el,'marginTop',0), mb: focusNum(el,'marginBottom',0)};
   });
-  const acs = getComputedStyle(area);
-  const aPadL = parseFloat(acs.paddingLeft)||0, aPadR = parseFloat(acs.paddingRight)||0;
-  const aBdL = parseFloat(acs.borderLeftWidth)||0, aBdR = parseFloat(acs.borderRightWidth)||0;
-  // 文本区内容盒宽度：飞行中钉死此值，外框变化就不会让 ~500 字符重新换行
-  const areaPinW = Math.max(1, area.getBoundingClientRect().width - aPadL - aPadR - aBdL - aBdR);
   return {
     left:r.left, top:r.top, width:r.width, height:r.height,
     padT:focusNum(card,'paddingTop',0), padR:focusNum(card,'paddingRight',0),
     padB:focusNum(card,'paddingBottom',0), padL:focusNum(card,'paddingLeft',0),
-    radius:focusNum(card,'borderTopLeftRadius',0), border:focusNum(card,'borderTopWidth',0),
+    bdT:focusNum(card,'borderTopWidth',0), bdR:focusNum(card,'borderRightWidth',0),
+    bdB:focusNum(card,'borderBottomWidth',0), bdL:focusNum(card,'borderLeftWidth',0),
+    radius:focusNum(card,'borderTopLeftRadius',0),
+    areaH: area.getBoundingClientRect().height,
     areaPadT:focusNum(area,'paddingTop',0), areaPadR:focusNum(area,'paddingRight',0),
     areaPadB:focusNum(area,'paddingBottom',0), areaPadL:focusNum(area,'paddingLeft',0),
-    areaPinW,
-    areaMax: parseFloat(getComputedStyle(area).maxHeight) || 0,
-    curveH: focusNum(curve,'height',0), curveMt:focusNum(curve,'marginTop',0),
-    progMt: focusNum(prog,'marginTop',0),
+    areaBdT:focusNum(area,'borderTopWidth',0), areaBdR:focusNum(area,'borderRightWidth',0),
+    areaBdB:focusNum(area,'borderBottomWidth',0), areaBdL:focusNum(area,'borderLeftWidth',0),
+    areaMt:focusNum(area,'marginTop',0), areaMb:focusNum(area,'marginBottom',0),
+    curveH: focusNum(curve,'height',0), curveMt:focusNum(curve,'marginTop',0), curveMb:focusNum(curve,'marginBottom',0),
+    progH: prog.getBoundingClientRect().height, progMt:focusNum(prog,'marginTop',0), progMb:focusNum(prog,'marginBottom',0),
     aux
   };
 }
@@ -3411,8 +3421,9 @@ function focusMeasureCacheSig(){
   return window.innerWidth + 'x' + window.innerHeight + '|' + (S.text ? S.text.length : 0) + '|' + (S.level || '');
 }
 /* 量目标级别的静态布局作为镜头终点，量完立刻还原当前视觉。
-   飞行只插值「外框几何 + 辅助行透明度」，内部尺寸冻结在起点、落定交还 CSS，
-   故这里一律 natural=false：不为隐藏辅助行克隆离屏探针（探针是 0→1 起镜长任务的主因）。 */
+   内部组件与外框同拍插值（边框位置关系全程成立），两端都必须是真实静态布局：
+   隐藏辅助行用离屏探针补自然高度（natural=true）。探针成本只落在预热帧——
+   起镜时缓存已由 focusPrewarm 备好；飞行中绝不预热（focusPrewarmCancel）。 */
 function focusMeasureTarget(level){
   const sig = focusMeasureCacheSig();
   if(sig !== focusMeasureCacheKey){ focusMeasureCache = {}; focusMeasureCacheKey = sig; }
@@ -3427,7 +3438,7 @@ function focusMeasureTarget(level){
   root.classList.toggle('focus-full', level === 2);
   let shot;
   if(level === 2){
-    shot = focusSnapshot(false);
+    shot = focusSnapshot(true);
     shot.aux.forEach(a=>{ a.h = 0; a.o = 0; a.mt = 0; a.mb = 0; });
   } else {
     // 顺带在同一改类窗口内量出「流内位置」并写入 r{level} 缓存：
@@ -3440,7 +3451,7 @@ function focusMeasureTarget(level){
     card.style.top = '0px';
     card.style.visibility = 'hidden';
     card.style.width = focusFlowWidth(level) + 'px';
-    shot = focusSnapshot(false);
+    shot = focusSnapshot(true);
     if(level === 1){
       // 半专注：统计格收起（胶囊已接管），其余辅助行保留
       shot.aux.forEach(a=>{ if(a.id === 'liveStats'){ a.h = 0; a.o = 0; a.mt = 0; a.mb = 0; } });
@@ -3504,15 +3515,12 @@ function focusFlowRect(level){
   focusMeasureCache['r' + level] = out;
   return Object.assign({}, out);
 }
-/* 飞行中把文本区内容宽度钉死：外框逐帧长大时文本不重新换行（无逐帧重排）。
-   pin 值为「内容盒宽度」，配 box-sizing:content-box 使 padding 变化也不影响换行。 */
-function focusAreaPin(area, pinW){
-  if(pinW > 0){
-    area.style.boxSizing = 'content-box';
-    area.style.width = pinW + 'px';
-    area.style.flex = '0 0 auto';
-  }
-}
+/* 飞行中逐帧应用镜头状态。边框位置关系的核心不变量：
+   ① 文本区 border-box 宽 == 当帧卡片内容盒宽（右缘永远贴着边框内缘，不钉死起点宽）；
+   ② 文本区高 = 当帧卡片内容盒高 − 其余组件占用（底缘永远贴着边框内缘，不冻结起点高）；
+   ③ 辅助行/曲线/进度条的高度与外边距、卡片内边距与描边全部同拍插值。
+   文本区宽度随外框逐帧变化会触发换行重排——这是「边框关系正确」的必要代价，
+   用合成层提层 + 单帧单次布局把成本压住（实测见 dolly-perf 门禁）。 */
 function focusDollyApply(s){
   const card = focusCard();
   card.style.left = s.left + 'px';
@@ -3521,7 +3529,8 @@ function focusDollyApply(s){
   card.style.height = s.height + 'px';
   card.style.padding = s.padT + 'px ' + s.padR + 'px ' + s.padB + 'px ' + s.padL + 'px';
   card.style.borderRadius = s.radius + 'px';
-  card.style.borderWidth = s.border + 'px';
+  card.style.borderWidth = s.bdT + 'px ' + s.bdR + 'px ' + s.bdB + 'px ' + s.bdL + 'px';
+  let auxOcc = 0;
   s.aux.forEach(a=>{
     const el = focusEl(a.id);
     if(!el) return;
@@ -3537,16 +3546,36 @@ function focusDollyApply(s){
     el.style.opacity = a.o;
     el.style.overflow = 'hidden';
     el.style.pointerEvents = a.o < .5 ? 'none' : '';
+    auxOcc += a.h + a.mt + a.mb;
   });
   const area = focusEl('typeArea');
   area.style.padding = s.areaPadT + 'px ' + s.areaPadR + 'px ' + s.areaPadB + 'px ' + s.areaPadL + 'px';
-  area.style.maxHeight = s.areaMax > 0 ? s.areaMax + 'px' : 'none';
+  area.style.borderWidth = s.areaBdT + 'px ' + s.areaBdR + 'px ' + s.areaBdB + 'px ' + s.areaBdL + 'px';
+  area.style.marginTop = s.areaMt + 'px';
+  area.style.marginBottom = s.areaMb + 'px';
+  area.style.maxHeight = 'none';
   area.style.minHeight = '0';
-  focusAreaPin(area, s.areaPinW);
+  area.style.overflow = 'hidden';
+  area.style.flex = '0 0 auto';
+  // ① 宽度：border-box 口径钉到当帧内容盒宽，padding/border 变化不影响外缘位置。
+  // floor 取整：浏览器把元素宽向上取整到布局像素，ceil 会让右缘超出内缘 1px。
+  const innerW = Math.max(1, s.width - s.bdL - s.bdR - s.padL - s.padR);
+  area.style.boxSizing = 'border-box';
+  area.style.width = Math.floor(innerW) + 'px';
   const curve = focusEl('liveCurveWrap');
   curve.style.height = s.curveH + 'px';
   curve.style.marginTop = s.curveMt + 'px';
-  focusEl('progressBar').style.marginTop = s.progMt + 'px';
+  curve.style.marginBottom = s.curveMb + 'px';
+  const prog = focusEl('progressBar');
+  prog.style.height = s.progH + 'px';
+  prog.style.marginTop = s.progMt + 'px';
+  prog.style.marginBottom = s.progMb + 'px';
+  // ② 高度：内容盒高减去辅助行/曲线/进度条与文本区自身外边距，剩余全部给文本区。
+  // floor 取整同宽度：保证「文本区+其余组件」总高 ≤ 内容盒高，底缘不越界。
+  const innerH = Math.max(1, s.height - s.bdT - s.bdB - s.padT - s.padB);
+  const areaH = Math.max(0, innerH - auxOcc - s.areaMt - s.areaMb
+    - s.curveH - s.curveMt - s.curveMb - s.progH - s.progMt - s.progMb);
+  area.style.height = Math.floor(areaH) + 'px';
 }
 function focusChromeEls(){
   return {
@@ -3592,9 +3621,9 @@ function focusDolly(level, duration){
   focusPrewarmCancel();   // 飞行期间绝不预热：撤销在途量测，落定后重排
   const gen = ++focusDollyGen;
   const flying = !!focusDollyNow;
-  // 起点 natural=false：隐藏辅助行的高度沿用 0（飞行中高度冻结、只做淡出），
-  // 不必为它们克隆离屏探针——那是 0→1 起镜长任务的主因。
-  const from = flying ? focusDollyNow : focusSnapshot(false);
+  // 起点 natural=true：隐藏辅助行补自然高度，收拢/展开两端才是真实静态布局。
+  // 探针成本落在起镜帧（0→1 约一次重排），预热缓存命中时目标端零探针。
+  const from = flying ? focusDollyNow : focusSnapshot(true);
   // chrome 起点必须在切换目标类「之前」读：此刻 DOM 仍是上一档的静态类，
   // 计算值即真实视觉（0→1 时页头/键盘=1，1→2 时已=0）。切类后再读会拿到目标值导致瞬隐而非淡出。
   const c = focusChromeEls();
@@ -3607,7 +3636,7 @@ function focusDolly(level, duration){
     const rect = focusFlowRect(level);
     to.left = rect.left;
     to.top = rect.top - window.scrollY;
-    // 飞行只插值辅助行「透明度」，高度冻结在起点、落定交还 CSS，故此处只定终点透明度。
+    // 辅助行高度/外边距与外框同拍插值（focusMeasureTarget 已给自然高度），此处只定终点透明度。
     // 半专注下 liveStats 收起（胶囊已接管），其余辅助行在 0/1 档均可见。
     to.aux.forEach(a=>{ a.o = (level === 1 && a.id === 'liveStats') ? 0 : 1; });
   }
@@ -3651,23 +3680,31 @@ function focusDolly(level, duration){
     const raw = Math.max(0, Math.min(1, (now - t0) / dur));
     const t = FOCUS_EASE(raw);
     // 外框 left/top/width/height 全程连续插值 → 落定帧与目标静态几何重合，无突跳。
-    // 性能红线：文本区内容宽度钉死在起点（areaPinW），~500 字符不随外框变化重新换行，
-    // 故 width/height 插值不触发逐帧文本重排；内边距/辅助行高度/曲线高度冻结在起点值，
-    // 只做淡出，目标内部布局在落定帧一次性交还 CSS（单次重排，不在逐帧路径上）。
+    // 边框位置关系：内边距/描边/辅助行高度与外边距/曲线/进度条全部同拍插值，
+    // 文本区宽高在 focusDollyApply 里由「当帧」外框推导（右缘/底缘永远贴边框内缘）。
+    // 两端都是真实静态布局（natural=true 补隐藏行自然高度），故落定交还 CSS 零突跳。
     const s = {
       left:lerp(from.left,to.left,t), top:lerp(from.top,to.top,t),
       width:lerp(from.width,to.width,t), height:lerp(from.height,to.height,t),
-      padT:from.padT, padR:from.padR, padB:from.padB, padL:from.padL,
-      radius:lerp(from.radius,to.radius,t), border:from.border,
-      areaPadT:from.areaPadT, areaPadR:from.areaPadR, areaPadB:from.areaPadB, areaPadL:from.areaPadL,
-      areaPinW:from.areaPinW,
-      areaMax:from.areaMax,
-      curveH:from.curveH, curveMt:from.curveMt, progMt:from.progMt,
-      aux: from.aux.map((a,i)=>({id:a.id, h:a.h, o:lerp(a.o,to.aux[i].o,t), mt:a.mt, mb:a.mb}))
+      padT:lerp(from.padT,to.padT,t), padR:lerp(from.padR,to.padR,t),
+      padB:lerp(from.padB,to.padB,t), padL:lerp(from.padL,to.padL,t),
+      bdT:lerp(from.bdT,to.bdT,t), bdR:lerp(from.bdR,to.bdR,t),
+      bdB:lerp(from.bdB,to.bdB,t), bdL:lerp(from.bdL,to.bdL,t),
+      radius:lerp(from.radius,to.radius,t),
+      areaPadT:lerp(from.areaPadT,to.areaPadT,t), areaPadR:lerp(from.areaPadR,to.areaPadR,t),
+      areaPadB:lerp(from.areaPadB,to.areaPadB,t), areaPadL:lerp(from.areaPadL,to.areaPadL,t),
+      areaBdT:lerp(from.areaBdT,to.areaBdT,t), areaBdR:lerp(from.areaBdR,to.areaBdR,t),
+      areaBdB:lerp(from.areaBdB,to.areaBdB,t), areaBdL:lerp(from.areaBdL,to.areaBdL,t),
+      areaMt:lerp(from.areaMt,to.areaMt,t), areaMb:lerp(from.areaMb,to.areaMb,t),
+      curveH:lerp(from.curveH,to.curveH,t), curveMt:lerp(from.curveMt,to.curveMt,t), curveMb:lerp(from.curveMb,to.curveMb,t),
+      progH:lerp(from.progH,to.progH,t), progMt:lerp(from.progMt,to.progMt,t), progMb:lerp(from.progMb,to.progMb,t),
+      aux: from.aux.map((a,i)=>({id:a.id, h:lerp(a.h,to.aux[i].h,t), o:lerp(a.o,to.aux[i].o,t),
+                                mt:lerp(a.mt,to.aux[i].mt,t), mb:lerp(a.mb,to.aux[i].mb,t)}))
     };
     focusDollyApply(s);
     focusDollyNow = s;
     applyChrome(t);
+    try{ liveCurveDraw(now); }catch(e){}   // 曲线画布随当帧尺寸重绘，避免拉伸糊化
     if(raw < 1){ focusDollyRaf = requestAnimationFrame(step); return; }
     // 落定：交还 CSS 静态布局，清掉所有逐帧内联值（同一帧内完成，无闪跳）
     if(gen !== focusDollyGen) return;   // 双保险：落定前再验代号
