@@ -6,7 +6,7 @@
 
 - **在线体验**：<http://47.120.61.237:8000/>
 - **技术栈**：Python 3 标准库 · SQLite · 原生 HTML/CSS/JS（Web Animations API / Canvas / WebAudio）
-- **当前发布版本**：`v2026.11.25-dolly`
+- **当前发布版本**：[**v1.7**](https://github.com/123WDNMD123/ielts-typing-practice/releases/latest) · [全部版本](https://github.com/123WDNMD123/ielts-typing-practice/releases)
 
 ---
 
@@ -21,7 +21,7 @@
 - [安全设计](#安全设计)
 - [性能约束](#性能约束)
 - [生产部署与回滚](#生产部署与回滚)
-- [版本记录](#版本记录)
+- [版本管理与发布记录](#版本管理与发布记录)
 - [已知限制](#已知限制)
 
 ---
@@ -111,16 +111,25 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 ```
 .
 ├── README.md
-├── server-source/
-│   ├── server.py                 # 后端：HTTP 服务 + API + SQLite（零依赖）
-│   ├── index.server.html         # 权威前端单文件（线上部署名 index.html）
-│   ├── index.html                # 旧版前端，仅作历史基线，不用于生产
-│   ├── update-typing.server.sh   # 生产发布脚本：备份 → 原子替换 → 重启 → 健康检查 → 失败回滚
-│   └── 更新部署.sh                # 旧版简易重启脚本（历史保留）
-└── typing-practice-release-*.tar.gz   # 历次发布归档（仅三份源码，不含数据库）
+└── server-source/
+    ├── server.py                 # 后端：HTTP 服务 + API + SQLite（零依赖）
+    ├── index.server.html         # 权威前端单文件（线上部署名 index.html）
+    ├── index.html                # 旧版前端，仅作历史基线，不用于生产
+    ├── update-typing.server.sh   # 生产发布脚本：备份 → 原子替换 → 重启 → 健康检查 → 失败回滚
+    └── 更新部署.sh                # 旧版简易重启脚本（历史保留）
 ```
 
-运行时产物 `data.db`、`__pycache__/`、含真实学生姓名的截图目录均已在 `.gitignore` 中排除，不入库。
+仓库只跟踪**源码与文档**。以下产物已在 `.gitignore` 中排除，不入库：
+
+| 排除项 | 原因 |
+| --- | --- |
+| `data.db` / `*.db-journal` / `*.db-wal` / `*.db-shm` | 含真实账号与成绩数据 |
+| `__pycache__/` / `*.pyc` | 运行时产物 |
+| `shots/` | 含真实学生姓名的截图 |
+| `*.tar.gz` | 发布归档改由 **Release 附件**分发，避免仓库随发布持续膨胀 |
+| `.workbuddy-ai/` | 本机工具与项目记忆数据 |
+
+历次发布归档请到 [Releases](https://github.com/123WDNMD123/ielts-typing-practice/releases) 下载，命名形如 `typing-practice-v1.7.tar.gz`（仅三份源码，**不含数据库**）。v1.0 之前的提交中仍可追溯早期归档文件。
 
 ---
 
@@ -233,8 +242,8 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 发布包只包含三份源码（`server.py`、`index.server.html`、`update-typing.server.sh`），**绝不携带数据库**。
 
 ```bash
-# 1. 本地打包
-tar -czf typing-practice-release-YYYYMMDD.tar.gz \
+# 1. 本地打包（文件名用即将发布的小版本号）
+tar -czf typing-practice-vX.Y.tar.gz \
   -C server-source server.py index.server.html update-typing.server.sh
 
 # 2. 传到服务器独立暂存目录并校验哈希
@@ -257,27 +266,45 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 
 发布后建议复验：公网 `GET`/`HEAD` 状态与内容哈希、`gzip` 压缩、`ETag` 304、访客接口，以及一次真实浏览器登录练习冒烟。
 
+复验通过后，按[版本管理约定](#版本管理与发布记录)创建下一个小版本号的 Release，并把归档作为附件上传（归档本身不提交进仓库）。
+
 ---
 
-## 版本记录
+## 版本管理与发布记录
 
-每次生产发布对应一个 Git 标签与一份发布归档。
+版本以**小版本号**递增（`v1.0`、`v1.1`、`v1.2` …），通过 **GitHub Release** 发布，不再使用日期代号标签。
 
-| 标签 | 内容 |
-| --- | --- |
-| `v2026.11.25-dolly` | 专注过渡重做为一镜到底（外框连续插值 + 合成层 + 文本宽度钉死，落定零突跳）＋ 统一设置菜单（外观/账号两段）＋ 修复对话框层叠导致的 Esc 误关 |
-| `v2026.11.25-batcha` | 偏好后端同步 + 两段式专注 + 实时 WPM 曲线 + 按键音效 + 成绩分享卡 + 连续打卡接口 |
-| `v2026.11.25-perf` | 修复视效层导致的整站卡顿（去 blur / 去 backdrop-filter / 纯 translate） |
-| `v2026.11.25-ambience` | 动态背景光斑、噪点、卡片辉光、标题流光等高级感视效 |
-| `v2026.11.25-account` | 账号管理入口（改名/改密码）+ 深色自动配色 + 无后端友好提示 |
-| `v2026.11.25-motion` | 动画系统：练习手感、完成庆祝、页面转场，三档开关 |
-| `v2026.11.25-studio` | IELTS Type Studio 前端重写 + 主题色 + 外观设置抽屉 |
-| `v2026.11.25-opt` | 换句/退格计分/换轮隔离等缺陷修复，成绩按账号隔离，gzip/ETag，发布脚本与回滚 |
+**发布约定：**
+
+1. 每次生产上线对应一个小版本号，号只增不减、不复用；
+2. Release 指向该次上线的实际提交，标签由 Release 自动创建，不单独手工打标签；
+3. 发布归档（`typing-practice-vX.Y.tar.gz`，仅三份源码）作为 **Release 附件**上传，不入仓库；
+4. 最新生产版本标记为 `latest`；
+5. 改动功能后同步更新本 README 与下方版本表。
+
+> GitHub Release 在底层仍需一个 git tag 作为锚点，因此仓库中会存在 `v1.x` 标签——它们是 Release 的载体，版本标识与下载入口统一以 Release 为准。
+
+### 发布记录
+
+| 版本 | 上线时间 | 内容 |
+| --- | --- | --- |
+| [**v1.7**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7) | 11-25 23:02 | 专注过渡重做为一镜到底（外框连续插值 + 合成层 + 文本宽度钉死，落定零突跳）＋ 统一设置菜单（外观/账号两段）＋ 修复对话框层叠导致的 Esc 误关 |
+| [v1.6](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.6) | 11-25 20:09 | 偏好后端同步 + 两段式专注 + 实时 WPM 曲线 + 按键音效 + 成绩分享卡 + 连续打卡接口 |
+| [v1.5](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.5) | 11-25 18:32 | 修复视效层导致的整站卡顿（18.7fps → 60fps；去 blur / 去 backdrop-filter / 纯 translate） |
+| [v1.4](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.4) | 11-25 17:55 | 动态背景光斑、噪点、卡片辉光、标题流光等高级感视效 |
+| [v1.3](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.3) | 11-25 17:42 | 账号自助管理（改昵称/改密码）+ 深色自动配色 + 无后端友好提示 |
+| [v1.2](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.2) | 11-25 15:20 | 动画系统：练习手感、完成庆祝、页面转场，三档开关 |
+| [v1.1](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.1) | 11-25 14:54 | IELTS Type Studio 前端重写 + 主题色 + 外观设置抽屉 |
+| [v1.0](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.0) | 11-25 14:07 | 换句/退格计分/换轮隔离等缺陷修复，成绩按账号隔离，gzip/ETag，发布脚本与回滚 |
+
+均为 2026 年。每个 Release 页面含完整变更说明与源码归档下载。
 
 ```bash
-git tag -l                 # 查看全部发布标签
-git show v2026.11.25-dolly --stat
+git tag -l                          # 查看版本标签（v1.0 … v1.7）
+git show v1.7 --stat                # 查看某版本改动
 ```
+
+早期日期代号标签（`v2026.11.25-opt` / `studio` / `motion` / `account` / `ambience` / `perf` / `batcha` / `dolly`）已在本次规范化中移除，对应关系依次为 v1.0 → v1.7；提交历史未作任何改写。
 
 ---
 

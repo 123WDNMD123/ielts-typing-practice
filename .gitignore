@@ -13,6 +13,11 @@ __pycache__/
 # 旧版界面截图（含真实学生姓名，仅本地留存）
 shots/
 
+# 发布归档：作为 GitHub Release 附件分发，不入仓库（避免仓库随发布持续膨胀）
+# 历史归档仍可在 v1.0 之前的提交中追溯；本地构建产物保留在工作目录
+*.tar.gz
+release-assets/
+
 # 系统杂项
 Thumbs.db
 Desktop.ini
