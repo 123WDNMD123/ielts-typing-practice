@@ -189,7 +189,8 @@ def public_user(row):
     return {
         "id": row["id"], "username": row["username"],
         "display_name": row["display_name"], "role": row["role"],
-        "disabled": bool(row["disabled"])
+        "disabled": bool(row["disabled"]),
+        "created_at": row["created_at"]
     }
 
 
@@ -358,6 +359,46 @@ def create_teacher(username, password, display_name="教师"):
             user_id = cur.lastrowid
         c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
     return user_id
+
+
+# ---------------- 账号自助管理 ----------------
+
+def update_profile(user, body):
+    """修改自己的昵称（成绩展示名）。账号 username 是身份标识，不可修改。"""
+    display_name = body.get("display_name", "").strip() if isinstance(body.get("display_name"), str) else ""
+    if not DISPLAY_NAME_RE.match(display_name):
+        raise ApiError("姓名需为 1～20 位中文、字母、数字、空格或 . · _ -，不能含引号等符号")
+    with db() as c:
+        c.execute("UPDATE users SET display_name=? WHERE id=?", (display_name, user["id"]))
+        # 成绩表冗余了展示名（导出/全班视图使用），同步刷新，历史成绩本身不受影响。
+        c.execute("UPDATE records SET student=? WHERE user_id=?", (display_name, user["id"]))
+        row = c.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+    return {"ok": True, "user": public_user(row)}
+
+
+def change_password(user, body, ip=None):
+    """修改自己的密码：必须验旧密码；成功后保留当前会话、踢掉其他设备会话。"""
+    old = body.get("old_password")
+    new = body.get("new_password")
+    confirm = body.get("confirm_password")
+    if not isinstance(old, str) or not isinstance(new, str):
+        raise ApiError("请求格式错误")
+    key = check_rate(ip, user["username"])
+    if not verify_password(old, user["password_hash"]):
+        note_rate_fail(key)
+        raise ApiError("当前密码不正确", 401)
+    if not 8 <= len(new) <= 128:
+        raise ApiError("密码长度需为 8～128 位")
+    if new == old:
+        raise ApiError("新密码不能与当前密码相同")
+    if isinstance(confirm, str) and confirm != new:
+        raise ApiError("两次输入的新密码不一致")
+    with db() as c:
+        c.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_password(new), user["id"]))
+        c.execute("DELETE FROM sessions WHERE user_id=?", (user["id"],))
+    clear_rate(key)
+    # 当前浏览器换发新会话，其他设备需重新登录。
+    return {"ok": True}, create_session(user["id"])
 
 
 # ---------------- 管理员 API ----------------
@@ -742,6 +783,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/auth/login":
                 user, token = login_user(self.read_json())
                 return self.send_json({"user": public_user(user)}, cookie=session_cookie(token))
+            if path == "/api/auth/profile":
+                return self.send_json(update_profile(self.require_user(), self.read_json()))
+            if path == "/api/auth/password":
+                result, token = change_password(self.require_user(), self.read_json(), self.client_address[0])
+                return self.send_json(result, cookie=session_cookie(token))
             if path == "/api/auth/logout":
                 cookie = SimpleCookie()
                 cookie.load(self.headers.get("Cookie", ""))

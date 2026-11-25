@@ -43,10 +43,20 @@
   function varsFor(hex, dark){
     var c=hexToHsl(hex), h=c[0], s=clamp(c[1],16,78), ah=(h+320)%360, v={};
     if(dark){
+      /* 深色基底：随主题色相自动派生的近黑色阶（低饱和、亮度 5%～12%），
+         比纯黑更有层次，又不会像旧版那样呈现明显深绿；换主题色整套深色底自动协调。 */
+      var ns=clamp(s*0.18,5,12);
+      v['--bg']=hslToHex(h,ns,5);
+      v['--surface']=hslToHex(h,ns,7.5);
+      v['--card']=hslToHex(h,clamp(ns+2,6,14),10);
+      v['--hero']=hslToHex(h,clamp(ns+4,8,16),12.5);
+      v['--border']=hslToHex(h,clamp(ns+2,6,14),19);
+      v['--text']=hslToHex(h,8,93);
+      v['--muted']=hslToHex(h,6,66);
+      v['--shadow']='0 10px 30px #00000066';
       v['--primary']=hslToHex(h,clamp(s,30,68),clamp(c[2]+38,62,82));
       v['--on-primary']=hslToHex(h,35,12);
       v['--primary-soft']=hslToHex(h,clamp(s*0.5,16,40),20);
-      v['--hero']=hslToHex(h,clamp(s*0.45,14,36),15);
       v['--accent']=hslToHex(ah,clamp(s,35,60),72);
     }else{
       var sat=clamp(s,30,70), l=clamp(c[2],22,38), p=hslToHex(h,sat,l);
@@ -60,6 +70,7 @@
     return v;
   }
   var KEYS=['--primary','--on-primary','--primary-soft','--hero','--accent'];
+  var DARK_KEYS=['--bg','--surface','--card','--border','--text','--muted','--shadow'];
   window.StudioAccent={
     defaultHex:'#285c42',
     presets:[
@@ -73,14 +84,16 @@
     varsFor:varsFor,
     apply:function(hex,dark){
       var st=document.documentElement.style;
+      if(!dark){ DARK_KEYS.forEach(function(k){ st.removeProperty(k); }); }
       if(!hex || hex.toLowerCase()===this.defaultHex){ KEYS.forEach(function(k){ st.removeProperty(k); }); return; }
       var v=varsFor(hex,dark);
       KEYS.forEach(function(k){ st.setProperty(k,v[k]); });
+      if(dark){ DARK_KEYS.forEach(function(k){ st.setProperty(k,v[k]); }); }
     }
   };
   var saved=null;
   try{ saved=localStorage.getItem('typingAccent'); }catch(e){}
-  if(saved && /^#[0-9a-fA-F]{6}$/.test(saved)){ window.StudioAccent.apply(saved.toLowerCase(), theme==='dark'); }
+  window.StudioAccent.apply(saved && /^#[0-9a-fA-F]{6}$/.test(saved) ? saved.toLowerCase() : null, theme==='dark');
 
   /* 动效档位引擎：full 完整 / lite 精简 / off 关闭；系统减弱动效强制 off，首屏即生效。 */
   var motion=null;
@@ -102,7 +115,7 @@
 <style id="studioStyles">
 /* Type Studio: colors, shell, study components, responsive layouts. */
 :root{color-scheme:light;--bg:#f4f5ef;--card:#fffefa;--surface:#eef0e7;--border:#dce1d4;--text:#1d2b24;--muted:#59685e;--primary:#285c42;--primary-soft:#e0ecde;--on-primary:#fff;--accent:#5c7028;--ok:#2d6949;--ok-soft:#e0eee1;--err:#9a3d38;--err-soft:#f7e5e0;--hero:#e6edda;--shadow:0 7px 24px #263a2210;--radius:17px;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,"Microsoft YaHei","PingFang SC",sans-serif;--rail-width:224px;--key-pinky:#f8e5e5;--key-ring:#faebd9;--key-middle:#f6efcb;--key-index:#dce9d9;--key-right:#e0eafa;--key-violet:#ebe4f6}
-:root[data-theme="dark"]{color-scheme:dark;--bg:#111814;--card:#19221d;--surface:#141c18;--border:#303e34;--text:#e8f1e9;--muted:#a0afa3;--primary:#bede9a;--primary-soft:#2a3c2c;--on-primary:#182517;--accent:#d5e294;--ok:#a7d8aa;--ok-soft:#273c30;--err:#ffaaa0;--err-soft:#492b26;--hero:#202f24;--shadow:0 10px 30px #080d0a30;--key-pinky:#432e33;--key-ring:#453b2c;--key-middle:#41402a;--key-index:#2d4436;--key-right:#2d3e53;--key-violet:#39334f}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0b0e0c;--card:#151b17;--surface:#101411;--border:#2c352e;--text:#ecf0ed;--muted:#a4aba6;--primary:#bede9a;--primary-soft:#2a3c2c;--on-primary:#182517;--accent:#d5e294;--ok:#a7d8aa;--ok-soft:#273c30;--err:#ffaaa0;--err-soft:#492b26;--hero:#1b231d;--shadow:0 10px 30px #00000066;--key-pinky:#432e33;--key-ring:#453b2c;--key-middle:#41402a;--key-index:#2d4436;--key-right:#2d3e53;--key-violet:#39334f}
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--bg);scroll-padding-top:76px}
 body{margin:0;color:var(--text);background:var(--bg);font:14px/1.55 var(--sans);min-height:100vh}
@@ -122,7 +135,7 @@ label{font-size:13px;color:var(--muted)}input::placeholder{color:var(--muted);op
 .sidebar nav button{display:flex;align-items:center;gap:10px;min-height:43px;text-align:left;padding:8px 9px;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:10px;font-weight:600}
 .sidebar nav button::before{content:attr(data-index);display:grid;place-items:center;width:25px;height:24px;border:1px solid var(--border);border-radius:5px;font:650 10px var(--mono);color:var(--muted);flex:none}
 .sidebar nav button:hover,.sidebar nav button.active{background:var(--primary-soft);color:var(--text)}.sidebar nav button.active{border-color:var(--border)}.sidebar nav button.active::before{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
-.sidebar-foot{margin-top:auto;display:grid;gap:8px}.user-card{min-width:0;display:flex;gap:9px;align-items:center;padding:9px 8px;border:1px solid var(--border);border-radius:10px}.user-icon{width:33px;height:33px;display:grid;place-items:center;border-radius:8px;background:var(--primary-soft);color:var(--primary);flex:none}.user-body{min-width:0}.user-body b,.user-body span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-body span{font-size:11px;color:var(--muted)}.sidebar-foot .btn{width:100%;font-size:13px}.sidebar-backdrop{position:fixed;inset:0;z-index:35;background:#10191380;border:0;width:100%;height:100%}
+.sidebar-foot{margin-top:auto;display:grid;gap:8px}.user-card{min-width:0;display:flex;gap:9px;align-items:center;padding:9px 8px;border:1px solid var(--border);border-radius:10px;width:100%;text-align:left;background:transparent;color:var(--text)}.user-card:hover{background:var(--primary-soft);border-color:var(--primary)}.user-icon{width:33px;height:33px;display:grid;place-items:center;border-radius:8px;background:var(--primary-soft);color:var(--primary);flex:none}.user-body{min-width:0;flex:1}.user-body b,.user-body span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-body span{font-size:11px;color:var(--muted)}.user-caret{color:var(--muted);font-size:12px;flex:none;transition:transform .15s ease}.user-card:hover .user-caret{color:var(--primary);transform:translateX(2px)}.sidebar-foot .btn{width:100%;font-size:13px}.sidebar-backdrop{position:fixed;inset:0;z-index:35;background:#10191380;border:0;width:100%;height:100%}
 .accent-entry{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-weight:650;font-size:13px}.accent-entry:hover{background:var(--primary-soft);border-color:var(--primary)}.accent-entry-dot{width:13px;height:13px;border-radius:50%;background:var(--primary);flex:none}.accent-entry-name{margin-left:auto;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px;font-weight:600}.accent-entry-caret{color:var(--muted);font-size:12px}
 #appearanceModal{position:fixed;inset:0;z-index:105;display:flex;overflow:auto;padding:14px;background:#101913a3}.appearance-panel{margin:auto;width:min(100%,400px);min-width:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;animation:appear .18s ease both}.appearance-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}.appearance-head h2{margin:0;font-size:19px}.appearance-close{min-height:32px;padding:5px 11px;font-size:12px}.appearance-section{margin-top:15px;padding-top:13px;border-top:1px solid var(--border)}.appearance-label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-weight:650;margin-bottom:10px}#accentName{font-size:12px;font-weight:650;color:var(--primary)}.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.mode-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.mode-switch button:hover{color:var(--text)}.mode-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}
 .motion-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.motion-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.motion-switch button:hover{color:var(--text)}.motion-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}.motion-note{font-size:11px;color:var(--muted);margin-top:7px}
@@ -151,9 +164,9 @@ html[data-motion="full"] .auth-layout{animation:popIn .3s cubic-bezier(.2,.9,.3,
 @keyframes popIn{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
 .auth-layout.auth-exit{animation:authOut .24s ease both!important}
 @keyframes authOut{to{opacity:0;transform:scale(.97) translateY(-10px)}}
-html[data-motion="full"] #appearanceModal .appearance-panel{animation:springUp .34s cubic-bezier(.22,1.36,.36,1) both}
+html[data-motion="full"] #appearanceModal .appearance-panel,html[data-motion="full"] #accountModal .appearance-panel{animation:springUp .34s cubic-bezier(.22,1.36,.36,1) both}
 @keyframes springUp{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
-@media(max-width:650px){html[data-motion="full"] #appearanceModal .appearance-panel{animation:drawerSpring .42s cubic-bezier(.22,1.25,.36,1) both}}
+@media(max-width:650px){html[data-motion="full"] #appearanceModal .appearance-panel,html[data-motion="full"] #accountModal .appearance-panel{animation:drawerSpring .42s cubic-bezier(.22,1.25,.36,1) both}}
 @keyframes drawerSpring{from{transform:translateY(60%)}65%{transform:translateY(-1.5%)}to{transform:none}}
 html[data-motion="full"] .studio-hero .key-art b{animation:keyFloat 3.4s ease-in-out infinite;position:relative;overflow:hidden}
 html[data-motion="full"] .studio-hero .key-art b:nth-child(2){animation-delay:.35s}
@@ -163,7 +176,7 @@ html[data-motion="full"] .studio-hero .key-art b:nth-child(5){animation-delay:1.
 html[data-motion="full"] .studio-hero .key-art b::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff66 50%,transparent 65%);transform:translateX(-130%);animation:keySheen 4.6s ease-in-out infinite}
 @keyframes keyFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @keyframes keySheen{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
-html.theme-xfade body,html.theme-xfade .sidebar,html.theme-xfade .card,html.theme-xfade .studio-hero,html.theme-xfade .page-heading,html.theme-xfade .btn,html.theme-xfade .appearance-panel,html.theme-xfade #typeArea,html.theme-xfade .daily-word-box{transition:background-color .35s ease,color .35s ease,border-color .35s ease}
+html.theme-xfade body,html.theme-xfade .sidebar,html.theme-xfade .card,html.theme-xfade .studio-hero,html.theme-xfade .page-heading,html.theme-xfade .btn,html.theme-xfade .appearance-panel,html.theme-xfade .account-panel,html.theme-xfade #typeArea,html.theme-xfade .daily-word-box{transition:background-color .35s ease,color .35s ease,border-color .35s ease}
 /* 完成庆祝：成绩格 stagger（仅 full）；粒子 Canvas 由 JS 按档位驱动 */
 html[data-motion="full"] .daily-summary .ds-cell{animation:cellUp .45s ease both}
 html[data-motion="full"] .daily-summary .ds-cell:nth-child(2){animation-delay:.06s}
@@ -175,7 +188,8 @@ html[data-motion="full"] .daily-summary .ds-cell:nth-child(6){animation-delay:.3
 /* 档位降级：off 全关；lite 去装饰性循环动画，保留手感微动效 */
 html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="off"] *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;gap:12px;flex-wrap:wrap}.accent-swatch{width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--border);position:relative;flex:none}.accent-swatch:hover{filter:brightness(1.12)}.accent-swatch[aria-pressed="true"]{outline:2px solid var(--primary);outline-offset:2px}.accent-custom{width:30px;height:30px;padding:0;border:1px dashed var(--border);border-radius:50%;background:conic-gradient(#c2453f,#c9a227,#5f9e3e,#2a9d8f,#3b6fb5,#7b5ea7,#c2453f);cursor:pointer;flex:none}.accent-custom:hover{filter:brightness(1.08)}.accent-custom.on{outline:2px solid var(--primary);outline-offset:2px;border-style:solid}.accent-custom input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.appearance-note{font-size:12px;margin-top:13px}
-@media(max-width:650px){#appearanceModal{padding:0;align-items:flex-end}.appearance-panel{width:100%;margin:0;border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:drawerUp .22s ease both}}
+#accountModal{position:fixed;inset:0;z-index:105;display:flex;overflow:auto;padding:14px;background:#101913a3}.account-panel{width:min(100%,440px)}.account-panel .appearance-section{margin-top:12px;padding-top:11px}.account-info{display:flex;gap:11px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}.account-info .user-icon{width:38px;height:38px;border-radius:10px}.account-info-body{min-width:0;flex:1}.account-info-body b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-info-body span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-meta{display:grid;gap:4px;margin-top:8px}.account-meta div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px}.account-meta dt{color:var(--muted)}.account-meta dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.account-form{display:grid;gap:6px}.account-form label{font-size:12px}.account-form input{width:100%;min-width:0}.account-form .btn{justify-self:start;min-height:36px;font-size:13px;padding:6px 14px}.account-msg{min-height:15px;font-size:12px;margin:0}.account-msg.err{color:var(--err)}.account-msg.ok{color:var(--ok)}.account-note{font-size:11px;color:var(--muted);margin-top:3px}
+@media(max-width:650px){#appearanceModal,#accountModal{padding:0;align-items:flex-end}.appearance-panel,.account-panel{width:100%;margin:0;border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:drawerUp .22s ease both}}
 @keyframes drawerUp{from{transform:translateY(28px);opacity:.5}to{transform:none;opacity:1}}
 .main{margin-left:var(--rail-width);min-width:0}.wrap{width:min(100%,1310px);margin:auto;padding:0 34px 22px}.studio-header{min-height:65px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);margin-bottom:22px}.studio-trail,.studio-edition{display:flex;align-items:center;gap:9px;white-space:nowrap}.trail-root,.trail-divider,.studio-edition{color:var(--muted)}#studioSection{font-weight:700}.studio-edition i,.overline i,.panel-chip i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--primary);flex:none}.menu-button{display:none}.studio-footer{padding:16px 0 0;margin-top:23px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;color:var(--muted)}
 .studio-hero,.page-heading{border:1px solid var(--border);border-radius:var(--radius);background:var(--hero);padding:clamp(20px,3.1vw,40px);margin-bottom:19px;min-width:0}.studio-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}.overline{color:var(--primary);display:flex;align-items:center;gap:8px;margin-bottom:10px}.hero-copy h1,.page-heading h1{font-size:clamp(28px,4.1vw,49px);font-weight:800;letter-spacing:-.045em}.hero-copy h1 span{display:block;font-size:clamp(15px,2vw,23px);letter-spacing:-.025em;margin-top:7px;color:var(--primary)}.hero-copy p,.page-heading p{margin-top:9px;max-width:58ch}.hero-art{text-align:right;min-width:0}.art-tag,.art-caption{display:block;color:var(--muted);font-size:9px}.art-caption{margin-top:9px}.key-art{display:flex;gap:5px;margin:8px 0 0;justify-content:flex-end}.key-art b{display:grid;place-items:center;width:clamp(30px,3.45vw,47px);aspect-ratio:1;border-radius:9px;background:var(--card);color:var(--primary);border:1px solid var(--border);box-shadow:0 3px 0 var(--border);font:750 clamp(15px,2vw,22px) var(--mono)}.key-art b:last-child{color:var(--on-primary);background:var(--primary);border-color:var(--primary)}
@@ -221,10 +235,11 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
     <button id="tab-admin" class="hidden" data-index="07" onclick="switchTab('admin')">后台管理</button>
   </nav>
   <div class="sidebar-foot">
-    <div class="user-card">
+    <button type="button" id="accountEntry" class="user-card" onclick="openAccount()" aria-haspopup="dialog" aria-controls="accountModal" title="打开账号管理：查看账号信息、修改昵称与密码">
       <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
       <div class="user-body"><b id="userDisplay">未登录</b><span id="userRole">请先登录后练习</span></div>
-    </div>
+      <span class="user-caret" aria-hidden="true">▸</span>
+    </button>
     <button type="button" id="accentEntry" class="accent-entry" onclick="openAppearance()" aria-haspopup="dialog" aria-controls="appearanceModal" title="打开外观设置：主题色与深浅模式">
       <span class="accent-entry-dot" aria-hidden="true"></span>外观设置<span class="accent-entry-name" id="accentEntryName">松林绿</span><span class="accent-entry-caret" aria-hidden="true">▸</span>
     </button>
@@ -654,6 +669,48 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
       <p class="motion-note" id="motionNote">完整：全部动效；精简：保留打字手感，减少装饰动画；关闭：静态界面。系统「减弱动态效果」开启时自动关闭。</p>
     </div>
     <p class="appearance-note">外观偏好仅保存在本机浏览器，不影响账号与成绩。</p>
+  </div>
+</div>
+
+<!-- 账号管理：账号信息 / 修改昵称 / 修改密码（桌面弹窗，移动端底部抽屉） -->
+<div id="accountModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+  <div class="appearance-panel account-panel">
+    <div class="appearance-head"><h2 id="accountTitle">账号管理</h2><button type="button" class="btn ghost appearance-close" onclick="closeAccount()">关闭</button></div>
+    <div class="appearance-section">
+      <div class="account-info">
+        <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
+        <div class="account-info-body"><b id="accountName">—</b><span id="accountSub">—</span></div>
+      </div>
+      <dl class="account-meta">
+        <div><dt>登录账号</dt><dd id="accountUsername">—</dd></div>
+        <div><dt>注册时间</dt><dd id="accountCreated">—</dd></div>
+      </dl>
+      <p class="account-note">登录账号是身份标识，创建后不可修改；昵称用于成绩展示。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>修改昵称</span></div>
+      <div class="account-form">
+        <label for="accountDisplayName">昵称（用于成绩展示）</label>
+        <input id="accountDisplayName" maxlength="20" placeholder="例如：Cathy" autocomplete="nickname">
+        <button type="button" id="accountNameSave" class="btn" onclick="saveDisplayName()">保存昵称</button>
+        <p class="account-msg" id="accountNameMsg" role="status"></p>
+      </div>
+      <p class="account-note">1～20 位中文、字母、数字、空格或 . · _ -。修改后历史成绩的展示名同步更新，成绩数据不受影响。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>修改密码</span></div>
+      <div class="account-form">
+        <label for="accountOldPw">当前密码</label>
+        <input id="accountOldPw" type="password" autocomplete="current-password" maxlength="128" placeholder="输入当前密码">
+        <label for="accountNewPw">新密码</label>
+        <input id="accountNewPw" type="password" autocomplete="new-password" maxlength="128" placeholder="至少 8 位">
+        <label for="accountNewPw2">确认新密码</label>
+        <input id="accountNewPw2" type="password" autocomplete="new-password" maxlength="128" placeholder="再输入一次新密码">
+        <button type="button" id="accountPwSave" class="btn" onclick="savePassword()">修改密码</button>
+        <p class="account-msg" id="accountPwMsg" role="status"></p>
+      </div>
+      <p class="account-note">修改成功后本机保持登录，其他设备需用新密码重新登录。</p>
+    </div>
   </div>
 </div>
 
@@ -2605,6 +2662,19 @@ function highlightNextKey(){
 let currentUser = null;
 let authMode = 'login';
 function getStudent(){ return currentUser ? currentUser.display_name : ''; }
+/* 网络错误友好化：静态快照主机（如预览面板 static-html）没有后端时，
+   把 Failed to fetch 翻译成可操作的提示，避免用户误以为账号或密码问题。 */
+function netErrMsg(e){
+  const noBackend = () => {
+    if(location.protocol === 'file:') return '当前是直接打开的本地 HTML 文件，没有后端服务，登录/成绩接口不可用。请改用同源预览入口或正式地址打开本页。';
+    const h = location.hostname;
+    if(h !== 'localhost' && h !== '127.0.0.1') return '当前页面打开在没有后端服务的主机上（静态快照不转发登录/成绩接口）。请改用同源预览入口或正式地址打开本页。';
+    return '无法连接服务器：请确认服务已启动，或改用同源预览入口/正式地址打开本页。';
+  };
+  if(e instanceof TypeError) return noBackend();
+  if(e instanceof SyntaxError) return '服务器响应异常（当前主机可能没有后端服务）。请改用同源预览入口或正式地址打开本页。';
+  return (e && e.message) || '网络异常，请稍后重试';
+}
 function roleLabel(role){ return role === 'teacher' ? '教师' : '学生'; }
 function requireLogin(){
   if(currentUser) return true;
@@ -2659,7 +2729,7 @@ async function submitAuth(){
     if(data.linked_records > 0) alert('已自动关联 ' + data.linked_records + ' 条同名历史成绩。');
     switchTab('daily');
   }catch(e){
-    err.textContent = e.message || '网络异常，请稍后重试';
+    err.textContent = netErrMsg(e);
   }finally{
     submit.disabled = false;
   }
@@ -2667,6 +2737,7 @@ async function submitAuth(){
 async function logout(){
   try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
   currentUser = null;
+  document.getElementById('accountModal').classList.add('hidden');
   resultSequence++;
   document.getElementById('modal').classList.add('hidden');
   resetSession(true);
@@ -2749,7 +2820,7 @@ function applyTheme(theme, save){
   if(window.StudioAccent){
     let accent = null;
     try{ accent = localStorage.getItem('typingAccent'); }catch(e){}
-    if(accent && /^#[0-9a-f]{6}$/i.test(accent)) StudioAccent.apply(accent.toLowerCase(), theme === 'dark');
+    StudioAccent.apply(accent && /^#[0-9a-f]{6}$/i.test(accent) ? accent.toLowerCase() : null, theme === 'dark');
   }
 }
 function setThemeMode(mode){
@@ -2927,6 +2998,99 @@ function closeAppearance(){
   restore();
   setTimeout(restore, 220);
 }
+/* 账号管理二级面板：账号信息 / 修改昵称 / 修改密码，交互与外观抽屉同构 */
+function openAccount(){
+  if(!requireLogin()) return;
+  syncAccountUI();
+  document.getElementById('accountModal').classList.remove('hidden');
+}
+function closeAccount(){
+  const wasOpen = !document.getElementById('accountModal').classList.contains('hidden');
+  document.getElementById('accountModal').classList.add('hidden');
+  if(!wasOpen) return;
+  const mobile = window.matchMedia('(max-width:930px)').matches;
+  if(mobile && !document.getElementById('sidebar').classList.contains('open')) openSidebar();
+  // 侧栏 visibility 过渡约 180ms，未结束时元素不可聚焦：立即尝试一次，过渡结束后兜底补焦
+  const restore = () => {
+    if(!document.getElementById('accountModal').classList.contains('hidden')) return;
+    const entry = document.getElementById('accountEntry');
+    if(entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
+    const menu = document.getElementById('menuToggle');
+    if(menu.getClientRects().length) menu.focus({preventScroll:true});
+  };
+  restore();
+  setTimeout(restore, 220);
+}
+function accountMsg(id, text, ok){
+  const el = document.getElementById(id);
+  el.textContent = text || '';
+  el.classList.toggle('ok', !!ok && !!text);
+  el.classList.toggle('err', !ok && !!text);
+}
+function syncAccountUI(){
+  if(!currentUser) return;
+  document.getElementById('accountName').textContent = currentUser.display_name;
+  document.getElementById('accountSub').textContent = roleLabel(currentUser.role) + ' · 成绩展示名';
+  document.getElementById('accountUsername').textContent = currentUser.username;
+  const created = currentUser.created_at;
+  let createdText = '—';
+  if(created){
+    const d = new Date(created > 1e12 ? created : created * 1000);
+    if(!isNaN(d)) createdText = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  document.getElementById('accountCreated').textContent = createdText;
+  document.getElementById('accountDisplayName').value = currentUser.display_name;
+  ['accountOldPw','accountNewPw','accountNewPw2'].forEach(id=>{ document.getElementById(id).value = ''; });
+  accountMsg('accountNameMsg','');
+  accountMsg('accountPwMsg','');
+}
+async function saveDisplayName(){
+  if(!requireLogin()) return;
+  const input = document.getElementById('accountDisplayName');
+  const btn = document.getElementById('accountNameSave');
+  const name = input.value.trim();
+  accountMsg('accountNameMsg','');
+  if(name === currentUser.display_name){ accountMsg('accountNameMsg','昵称没有变化', true); return; }
+  btn.disabled = true;
+  try{
+    const res = await fetch('/api/auth/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({display_name:name})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || '保存失败');
+    currentUser = data.user;
+    updateAuthUI();
+    syncAccountUI();
+    accountMsg('accountNameMsg','昵称已更新', true);
+    const historyPage = document.getElementById('page-history');
+    if(historyPage && !historyPage.classList.contains('hidden')) renderHistory();
+  }catch(e){
+    accountMsg('accountNameMsg', netErrMsg(e));
+  }finally{
+    btn.disabled = false;
+  }
+}
+async function savePassword(){
+  if(!requireLogin()) return;
+  const oldPw = document.getElementById('accountOldPw').value;
+  const newPw = document.getElementById('accountNewPw').value;
+  const newPw2 = document.getElementById('accountNewPw2').value;
+  const btn = document.getElementById('accountPwSave');
+  accountMsg('accountPwMsg','');
+  if(!oldPw || !newPw || !newPw2){ accountMsg('accountPwMsg','请完整填写当前密码与新密码'); return; }
+  if(newPw.length < 8){ accountMsg('accountPwMsg','新密码至少 8 位'); return; }
+  if(newPw !== newPw2){ accountMsg('accountPwMsg','两次输入的新密码不一致'); return; }
+  btn.disabled = true;
+  try{
+    const res = await fetch('/api/auth/password', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({old_password:oldPw, new_password:newPw, confirm_password:newPw2})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || '修改失败');
+    ['accountOldPw','accountNewPw','accountNewPw2'].forEach(id=>{ document.getElementById(id).value = ''; });
+    accountMsg('accountPwMsg','密码已修改，本机保持登录', true);
+  }catch(e){
+    accountMsg('accountPwMsg', netErrMsg(e));
+  }finally{
+    btn.disabled = false;
+  }
+}
 function initAccentPicker(){
   const wrap = document.getElementById('accentSwatches');
   if(!wrap || !window.StudioAccent) return;
@@ -2995,7 +3159,7 @@ async function renderHistory(){
   try{
     const res = await fetch('/api/records?scope=mine&limit=60');
     if(account!==currentUser || request!==historyRequest) return;
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     if(!res.ok) throw new Error();
     const data = await res.json();
     if(account!==currentUser || request!==historyRequest) return;
@@ -3107,7 +3271,7 @@ async function renderClass(){
       fetch('/api/summary'),
       fetch('/api/records?scope=class&limit=30')
     ]);
-    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     sum = await res1.json(); rec = await res2.json();
   }catch(e){}
   const st = sum.students || [];
@@ -3632,7 +3796,7 @@ async function loadAdmin(){
   const box = document.getElementById('adminStudents');
   try{
     const res = await fetch('/api/admin/students');
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || '加载失败');
     renderAdminStudents(data.students || []);
@@ -3718,7 +3882,7 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
 });
 // Keep keyboard focus on the topmost visible dialog.
 (function initStudioDialogs(){
-  const dialogs = ['pwModal','authModal','modal','appearanceModal'].map(id=>document.getElementById(id));
+  const dialogs = ['pwModal','authModal','modal','appearanceModal','accountModal'].map(id=>document.getElementById(id));
   const getDialog = () => dialogs.find(el=>!el.classList.contains('hidden'));
   const focusables = dialog => Array.from(dialog.querySelectorAll('button:not([disabled]),input:not([disabled])')).filter(el=>el.getClientRects().length);
   let previous = null;
@@ -3729,15 +3893,18 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
     if(active && active!==previous){
       const target = active.id==='appearanceModal'
         ? (active.querySelector('.accent-swatch[aria-pressed="true"]') || focusables(active)[0])
+        : active.id==='accountModal'
+        ? (document.getElementById('accountDisplayName') || focusables(active)[0])
         : (active.querySelector('input') || focusables(active)[0]);
       if(target) target.focus({preventScroll:true});
     }else if(!active && previous && document.activeElement===document.body){
       if(previous.id==='authModal' && currentUser) focusDailyInput();
-      else if(previous.id==='appearanceModal'){
+      else if(previous.id==='appearanceModal' || previous.id==='accountModal'){
         // 侧栏 visibility 过渡未结束时入口尚不可聚焦，过渡完成后兜底补焦
+        const entryId = previous.id==='accountModal' ? 'accountEntry' : 'accentEntry';
         setTimeout(()=>{
           if(getDialog()) return;
-          const entry = document.getElementById('accentEntry');
+          const entry = document.getElementById(entryId);
           if(entry.getClientRects().length) entry.focus({preventScroll:true});
           else focusStudioNavigation();
         }, 220);
@@ -3751,12 +3918,16 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
   document.getElementById('appearanceModal').addEventListener('click', e=>{
     if(e.target.id==='appearanceModal') closeAppearance();
   });
+  document.getElementById('accountModal').addEventListener('click', e=>{
+    if(e.target.id==='accountModal') closeAccount();
+  });
   document.addEventListener('keydown', e=>{
     const active = getDialog();
     if(e.key==='Escape'){
       if(active && active.id==='pwModal') closePwModal();
       else if(active && active.id==='modal') closeModal();
       else if(active && active.id==='appearanceModal') closeAppearance();
+      else if(active && active.id==='accountModal') closeAccount();
       else if(!active && document.getElementById('sidebar').classList.contains('open')) closeSidebar(true);
     }
     if(e.key!=='Tab' || !active) return;
