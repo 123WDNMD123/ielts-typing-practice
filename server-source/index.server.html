@@ -136,7 +136,7 @@ h1,h2,h3,p,blockquote{margin:0}h1,h2,h3{line-height:1.22}h2{font-size:19px;margi
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:650;line-height:1.3;background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
 .btn.ghost{background:transparent;color:var(--text);border-color:var(--border)}.btn.warn{background:var(--err-soft);color:var(--err);border-color:transparent}.btn:hover:not(:disabled){filter:brightness(1.08)}.btn.ghost:hover:not(:disabled){background:var(--primary-soft);border-color:var(--primary)}
 label{font-size:13px;color:var(--muted)}input::placeholder{color:var(--muted);opacity:.85}
-.sidebar{position:fixed;inset:0 auto 0 0;width:var(--rail-width);z-index:40;display:flex;flex-direction:column;gap:24px;background:color-mix(in srgb,var(--card) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-right:1px solid var(--border);padding:23px 15px 16px;overflow:auto}
+.sidebar{position:fixed;inset:0 auto 0 0;width:var(--rail-width);z-index:40;display:flex;flex-direction:column;gap:24px;background:color-mix(in srgb,var(--card) 97%,transparent);border-right:1px solid var(--border);padding:23px 15px 16px;overflow:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:0 3px 19px;border-bottom:1px solid var(--border)}.brand b{display:block;font-size:15px}.brand div span,.studio-edition,.studio-footer,.art-tag,.art-caption,.overline,.panel-kicker,.quote-footer{font:600 11px/1.4 var(--mono);letter-spacing:.1em}.brand div span{display:block;margin-top:3px;color:var(--muted);font-size:9px}
 .brand-mark{width:36px;height:36px;display:grid;place-items:center;flex:none;background:var(--primary);color:var(--on-primary);border-radius:10px}.brand-mark svg,.user-icon svg{width:20px;height:20px}
 .sidebar nav{display:grid;gap:4px}.nav-caption{padding:0 9px 7px;color:var(--muted);font-size:11px;font-weight:650}.nav-spaced{margin-top:23px}
@@ -149,13 +149,13 @@ label{font-size:13px;color:var(--muted)}input::placeholder{color:var(--muted);op
 .motion-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.motion-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.motion-switch button:hover{color:var(--text)}.motion-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}.motion-note{font-size:11px;color:var(--muted);margin-top:7px}
 .motion-fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:130}
 /* 高级感视效：环境流光背景 / 细噪点 / 卡片悬停辉光 / 标题渐变流光（仅 full，off 全静） */
-.ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}.ambient-bg i{position:absolute;border-radius:50%;filter:blur(70px);background:radial-gradient(circle at 35% 35%,color-mix(in srgb,var(--primary) 26%,transparent),transparent 68%)}.ambient-bg i:nth-child(1){width:54vmax;height:54vmax;top:-20vmax;left:-14vmax}.ambient-bg i:nth-child(2){width:46vmax;height:46vmax;bottom:-18vmax;right:-12vmax;background:radial-gradient(circle at 60% 40%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 68%)}.ambient-bg i:nth-child(3){width:34vmax;height:34vmax;top:32%;left:56%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--ok) 14%,transparent),transparent 70%)}
+.ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}.ambient-bg i{position:absolute;border-radius:50%;will-change:transform;background:radial-gradient(circle at 35% 35%,color-mix(in srgb,var(--primary) 26%,transparent),transparent 68%)}.ambient-bg i:nth-child(1){width:54vmax;height:54vmax;top:-20vmax;left:-14vmax}.ambient-bg i:nth-child(2){width:46vmax;height:46vmax;bottom:-18vmax;right:-12vmax;background:radial-gradient(circle at 60% 40%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 68%)}.ambient-bg i:nth-child(3){width:34vmax;height:34vmax;top:32%;left:56%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--ok) 14%,transparent),transparent 70%)}
 html[data-motion="full"] .ambient-bg i{animation:ambA 34s ease-in-out infinite alternate}
 html[data-motion="full"] .ambient-bg i:nth-child(2){animation:ambB 41s ease-in-out infinite alternate}
 html[data-motion="full"] .ambient-bg i:nth-child(3){animation:ambC 47s ease-in-out infinite alternate}
-@keyframes ambA{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(9vmax,6vmax,0) scale(1.14)}}
-@keyframes ambB{from{transform:translate3d(0,0,0) scale(1.08)}to{transform:translate3d(-8vmax,-5vmax,0) scale(.94)}}
-@keyframes ambC{from{transform:translate3d(0,0,0) scale(.92)}to{transform:translate3d(-6vmax,7vmax,0) scale(1.1)}}
+@keyframes ambA{from{transform:translate3d(0,0,0)}to{transform:translate3d(9vmax,6vmax,0)}}
+@keyframes ambB{from{transform:translate3d(0,0,0)}to{transform:translate3d(-8vmax,-5vmax,0)}}
+@keyframes ambC{from{transform:translate3d(0,0,0)}to{transform:translate3d(-6vmax,7vmax,0)}}
 html[data-motion="lite"] .ambient-bg i{animation:none}
 html[data-motion="off"] .ambient-bg{display:none}
 .grain{position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
@@ -164,10 +164,10 @@ html[data-motion="off"] .grain{display:none}
 html[data-motion="full"] .card,html[data-motion="full"] .path-step,html[data-motion="full"] .lvl-btn,html[data-motion="full"] .passage-item{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 html[data-motion="full"] .card:hover{border-color:var(--primary-edge);box-shadow:0 12px 32px var(--primary-glow)}
 html[data-motion="full"] .path-step:hover,html[data-motion="full"] .lvl-btn:hover,html[data-motion="full"] .passage-item:hover{transform:translateY(-2px);box-shadow:0 10px 26px var(--primary-glow)}
-html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(--text) 30%,color-mix(in srgb,var(--primary) 72%,var(--text)) 50%,var(--text) 70%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h1sheen 8s ease-in-out infinite}
+html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(--text) 30%,color-mix(in srgb,var(--primary) 72%,var(--text)) 50%,var(--text) 70%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h1sheen 2.8s ease-in-out 1 both}
 @keyframes h1sheen{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
-@media(max-width:650px){.ambient-bg i{filter:blur(46px)}.ambient-bg i:nth-child(3){display:none}.grain{opacity:.04}}
-@supports not (color:color-mix(in srgb,red 50%,blue)){.ambient-bg{display:none}.sidebar{background:var(--card);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(max-width:650px){.ambient-bg i:nth-child(3){display:none}.grain{opacity:.04}}
+@supports not (color:color-mix(in srgb,red 50%,blue)){.ambient-bg{display:none}.sidebar{background:var(--card)}}
 .record-badge{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:5px 14px;border-radius:20px;background:linear-gradient(120deg,#f5d67b,#e0a33e);color:#4a3208;font-weight:750;font-size:13px;animation:badgeIn .55s cubic-bezier(.2,1.4,.4,1) both}
 @keyframes badgeIn{0%{opacity:0;transform:scale(.4) rotate(-8deg)}60%{opacity:1;transform:scale(1.12) rotate(2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
 /* 练习手感：字符落定弹跳 / 错误抖动 / 光标呼吸 / 按键下沉（full+lite 保留） */
