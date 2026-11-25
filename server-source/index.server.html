@@ -168,6 +168,60 @@ html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(
 @keyframes h1sheen{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
 @media(max-width:650px){.ambient-bg i:nth-child(3){display:none}.grain{opacity:.04}}
 @supports not (color:color-mix(in srgb,red 50%,blue)){.ambient-bg{display:none}.sidebar{background:var(--card)}}
+/* ===== 批A：两段式专注 / 实时曲线 / 分享卡（动画只用 transform/opacity，无 blur 常驻） ===== */
+#liveCurveWrap{position:relative;height:64px;margin-top:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
+#liveCurve{display:block;width:100%;height:100%}
+#liveCurveLabel{position:absolute;top:6px;left:10px;font-size:11px;color:var(--muted);pointer-events:none}
+#focusCapsule{display:none;position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;gap:18px;padding:8px 20px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb,var(--card) 88%,transparent);box-shadow:var(--shadow);font-size:12px;color:var(--muted);white-space:nowrap}
+#focusCapsule b{color:var(--text);font-size:15px;margin-right:4px;font-variant-numeric:tabular-nums}
+#focusExit{display:none;position:fixed;top:14px;right:16px;z-index:60;min-height:34px;padding:6px 14px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--muted);box-shadow:var(--shadow)}
+#focusExit:hover{color:var(--text);border-color:var(--primary-edge)}
+/* 半专注：收侧栏与页头，保留打字卡 */
+html.focus-half .sidebar{transform:translateX(-103%);visibility:hidden}
+html.focus-half .main{margin-left:0}
+html.focus-half .page-heading,html.focus-half .studio-header{opacity:0;pointer-events:none}
+html.focus-half #keyboard{display:none}
+html.focus-half #liveStats{display:none}
+html.focus-half #focusCapsule{display:flex}
+html.focus-half #focusExit{display:block}
+/* 全屏专注：打字卡铺满视口，只留文本+曲线+细进度条 */
+html.focus-full .sidebar,html.focus-full .studio-header,html.focus-full .page-heading{display:none}
+html.focus-full .main{margin:0;padding:0}
+html.focus-full #typingSection{position:fixed;inset:0;z-index:55;margin:0;padding:0}
+html.focus-full #typingSection>.typing-card{position:absolute;inset:0;margin:0;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;padding:64px clamp(18px,6vw,90px) 26px;background:var(--bg)}
+html.focus-full .panel-kicker,html.focus-full .session-header,html.focus-full .material-title,html.focus-full .live-hint,html.focus-full #liveStats,html.focus-full #keyboard{display:none}
+html.focus-full #typeArea{flex:0 1 auto;min-height:0;max-height:calc(100vh - 220px);overflow:auto;margin:0}
+html.focus-full #liveCurveWrap{height:56px;margin-top:12px}
+html.focus-full #progressBar{margin-top:12px}
+html.focus-full #focusCapsule{display:flex}
+html.focus-full #focusExit{display:block}
+html.focus-full .ambient-bg i{opacity:.7}
+/* 电影式过渡（仅 full 档；lite/off 直接切换） */
+html[data-motion="full"] .sidebar{transition:transform .34s cubic-bezier(.3,.9,.3,1),visibility .34s}
+html[data-motion="full"] .main{transition:margin-left .34s cubic-bezier(.3,.9,.3,1)}
+/* 注意：fixed 定位的卡片/胶囊不能用 transform 动画（会形成包含块使内部 fixed 子元素错位），只做 opacity */
+html[data-motion="full"].focus-full #typingSection>.typing-card{animation:focusZoom .42s ease both}
+html[data-motion="full"].focus-half #typingSection>.typing-card{animation:focusSettle .3s ease both}
+@keyframes focusZoom{from{opacity:.35}to{opacity:1}}
+@keyframes focusSettle{from{opacity:.75}to{opacity:1}}
+html[data-motion="full"] #focusCapsule{animation:capsuleIn .32s ease both}
+@keyframes capsuleIn{from{opacity:0}to{opacity:1}}
+@media(max-width:650px){
+  /* 窄屏：胶囊占左侧大部分宽度，退出钮移到右下角避免重叠；错误数隐藏（结果页仍有） */
+  #focusCapsule{gap:10px;padding:7px 12px;font-size:11px;max-width:calc(100vw - 24px);overflow:hidden;left:12px;transform:none}
+  #focusCapsule b{font-size:13px}
+  #focusCapsule .fc-err{display:none}
+  #focusExit{padding:8px 12px;top:auto;bottom:14px;right:12px}
+  html.focus-full #typingSection>.typing-card{padding:58px 16px 64px}
+  html.focus-full #typeArea{max-height:calc(100vh - 240px)}
+}
+/* 分享卡面板 */
+@supports not (color:color-mix(in srgb,red 50%,blue)){#focusCapsule,#focusExit{background:var(--card)}}
+#shareModal{position:fixed;inset:0;z-index:106;display:flex;overflow:auto;padding:14px;background:#101913a3}
+.share-panel{width:min(100%,680px)}
+.share-row-btn{min-height:28px;padding:3px 10px;font-size:12px}
+#sharePreview{border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--surface)}
+#shareImg{display:block;width:100%;height:auto}
 .record-badge{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:5px 14px;border-radius:20px;background:linear-gradient(120deg,#f5d67b,#e0a33e);color:#4a3208;font-weight:750;font-size:13px;animation:badgeIn .55s cubic-bezier(.2,1.4,.4,1) both}
 @keyframes badgeIn{0%{opacity:0;transform:scale(.4) rotate(-8deg)}60%{opacity:1;transform:scale(1.12) rotate(2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
 /* 练习手感：字符落定弹跳 / 错误抖动 / 光标呼吸 / 按键下沉（full+lite 保留） */
@@ -454,6 +508,7 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
             <div id="dSaveTip" class="hidden" style="background:var(--err-soft);color:var(--err);font-size:13px;padding:9px 12px;border-radius:8px;margin:0 auto 16px;max-width:440px;text-align:left">⚠️ 成绩未能保存到服务器（服务器可能未启动或网络断开）。</div>
             <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
               <button class="btn" onclick="startDaily()">再来一轮</button>
+              <button class="btn ghost" onclick="openShareCard(lastDailyResult)">生成分享卡</button>
               <button class="btn ghost hidden" id="dRetryBtn" onclick="retrySaveDaily()">重试保存</button>
             </div>
           </div>
@@ -556,7 +611,15 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
       </div>
       <div id="typeArea" tabindex="-1" onclick="focusTypeInput()"></div>
       <input id="typeInput" class="hidden-input" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="打字输入框">
+      <div id="liveCurveWrap"><canvas id="liveCurve" aria-hidden="true"></canvas><span id="liveCurveLabel">实时 WPM</span></div>
       <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="focusCapsule" aria-hidden="true">
+        <span><b id="fcWpm">0</b>WPM</span>
+        <span><b id="fcAcc">100%</b>准确率</span>
+        <span><b id="fcTime">--:--</b><span id="fcTimeLabel">剩余</span></span>
+        <span class="fc-err"><b id="fcErr">0</b>错误</span>
+      </div>
+      <button type="button" id="focusExit" onclick="focusStepDown()" title="退出专注（Esc）" aria-label="退出专注模式">✕ 退出专注</button>
     </div>
 
     <div class="card" id="keyboard">
@@ -698,7 +761,20 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
       </div>
       <p class="motion-note" id="motionNote">完整：全部动效；精简：保留打字手感，减少装饰动画；关闭：静态界面。系统「减弱动态效果」开启时自动关闭。</p>
     </div>
-    <p class="appearance-note">外观偏好仅保存在本机浏览器，不影响账号与成绩。</p>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>按键音效</span><span id="soundStateLabel">开</span></div>
+      <div class="mode-switch" role="group" aria-label="按键音效开关">
+        <button type="button" id="soundOnBtn" onclick="setSoundOn(true)" aria-pressed="true">开</button>
+        <button type="button" id="soundOffBtn" onclick="setSoundOn(false)" aria-pressed="false">关</button>
+      </div>
+      <div class="motion-switch" role="group" aria-label="音效风格" style="margin-top:8px">
+        <button type="button" id="soundSoftBtn" onclick="setSoundStyle('soft')" aria-pressed="true">柔和</button>
+        <button type="button" id="soundMechBtn" onclick="setSoundStyle('mech')" aria-pressed="false">机械</button>
+        <button type="button" id="soundTypeBtn" onclick="setSoundStyle('typewriter')" aria-pressed="false">打字机</button>
+      </div>
+      <p class="motion-note">打字时播放轻柔键音，错键低音提示、完成上行音。音量克制，不影响他人。</p>
+    </div>
+    <p class="appearance-note">登录后外观偏好随账号同步，换设备自动恢复；未登录时仅保存在本机浏览器。</p>
   </div>
 </div>
 
@@ -761,8 +837,21 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
     <div id="mdSaveTip" class="hidden" style="background:var(--err-soft);color:var(--err);font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:14px;text-align:left">⚠️ 成绩未能保存到服务器（服务器可能未启动或网络断开）。请记下上面的成绩或截图，告诉老师。</div>
     <div class="row">
       <button class="btn" onclick="retrySession()">再来一次</button>
+      <button class="btn ghost" onclick="openShareCard(lastResult)">生成分享卡</button>
       <button class="btn ghost" onclick="closeModal()">确定</button>
       <button class="btn ghost" onclick="closeModal();switchTab('history')">查看我的成绩</button>
+    </div>
+  </div>
+</div>
+
+<!-- 成绩分享卡预览 -->
+<div id="shareModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="appearance-panel share-panel">
+    <div class="appearance-head"><h2 id="shareTitle">成绩分享卡</h2><button type="button" class="btn ghost appearance-close" onclick="closeShareCard()">关闭</button></div>
+    <div id="sharePreview"><img id="shareImg" alt="成绩分享卡预览"></div>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn" id="shareDownload" onclick="downloadShareCard()">下载 PNG</button>
+      <span class="account-note" style="margin:0">1200×675，含昵称不露账号，可直接发到班级群。</span>
     </div>
   </div>
 </div>
@@ -2083,6 +2172,7 @@ function switchTab(t){
   document.getElementById('page-class').classList.toggle('hidden', t!=='class');
   document.getElementById('page-admin').classList.toggle('hidden', t!=='admin');
   document.getElementById('typingSection').classList.toggle('hidden', !showTyping);
+  if(!showTyping) focusExitAll();
   if(t==='daily'){
     dailyView('practice');
     if(!D.list.length && document.getElementById('dailySummary').classList.contains('hidden')) startDaily();
@@ -2233,6 +2323,7 @@ function homeSentenceChar(ch){
   if(!Q.startedAt) Q.startedAt = Date.now();
   const expected = Q.item.en[Q.pos];
   const ok = ignoreCase ? ch.toLowerCase()===expected.toLowerCase() : ch===expected;
+  StudioSound.key(ok);
   const sp = Q.spans[Q.pos];
   if(ok){
     Q.correct++; Q.pos++;
@@ -2395,13 +2486,16 @@ function beginSession(mode, title, text, material, level, tokens){
   document.getElementById('materialTitle').textContent = material;
   document.getElementById('stTime').textContent = S.duration ? fmtTime(S.duration) : '不限';
   renderText();
-  document.getElementById('typeArea').focus();
+  liveCurveReset();
+  focusSet(1); // 两段式专注：选定项目先进入半专注（内部已处理焦点）
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function resetSession(silent){
   clearInterval(S.timer); S.timer=null;
   Object.assign(S,{text:'',pos:0,errors:0,correct:0,startedAt:null,mode:null,duration:0,finished:false,label:'',material:'',level:null,tokens:null,spans:[],_cur:null,_scrollPending:false});
+  liveCurveStop();
+  focusExitAll();
   document.getElementById('typeArea').innerHTML='';
   const liveHint = document.getElementById('liveHint');
   if(liveHint) liveHint.classList.remove('show');
@@ -2485,6 +2579,7 @@ function accuracy(correct, errors){
 }
 function typeBackspace(){
   if(!S.correct) return;
+  StudioSound.backspace();
   const previous = S.pos;
   do { S.pos--; } while(isIgnorableChar(S.text[S.pos]));
   S.correct--;
@@ -2500,9 +2595,16 @@ function typeChar(ch){
     if(!S.duration) finish('练习完成');
     return;
   }
-  if(!S.startedAt){ S.startedAt = Date.now(); if(S.duration) S.timer=setInterval(tick, 200); }
+  if(!S.startedAt){
+    S.startedAt = Date.now();
+    S.timer=setInterval(tick, 200); // 计时模式倒计时 / 不限时模式计已用时
+    if(focusLevel === 1) focusSet(2); // 两段式专注：首键进入极简全屏
+    liveCurveLastSample = Date.now();
+    liveCurveStart();
+  }
   const expected = S.text[S.pos];
   const ok = ignoreCase ? (ch.toLowerCase()===expected.toLowerCase()) : (ch===expected);
+  StudioSound.key(ok);
   const keyEl = keyFor(expected);
   if(ok){
     S.correct++; S.pos++;
@@ -2521,6 +2623,7 @@ function typeChar(ch){
   if(S.pos>=S.text.length && !S.duration) finish('练习完成');
 }
 function typeKeydown(e){
+  if(e.key==='Escape'){ focusEscHandler(e); return; }
   if(S.finished || !S.text) return;
   if(e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
   if(e.key==='Backspace'){ e.preventDefault(); typeBackspace(); return; }
@@ -2557,12 +2660,21 @@ function updateLive(){
   const acc = accuracy(S.correct, S.errors);
   document.getElementById('stAcc').textContent = acc + '%';
   document.getElementById('stErr').textContent = S.errors;
+  liveCurveSample();
+  if(focusLevel > 0) syncFocusCapsule();
 }
 function tick(){
   updateLive();
-  const left = Math.max(0, S.duration - (Date.now()-S.startedAt)/1000);
-  document.getElementById('stTime').textContent = fmtTime(Math.ceil(left));
-  if(left<=0) finish('时间到');
+  if(S.duration){
+    const left = Math.max(0, S.duration - (Date.now()-S.startedAt)/1000);
+    document.getElementById('stTime').textContent = fmtTime(Math.ceil(left));
+    if(focusLevel > 0) syncFocusCapsule();
+    if(left<=0) finish('时间到');
+  } else {
+    const elapsed = Math.floor((Date.now()-S.startedAt)/1000);
+    document.getElementById('stTime').textContent = fmtTime(elapsed);
+    if(focusLevel > 0) syncFocusCapsule();
+  }
 }
 function fmtTime(s){ return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2571,10 +2683,14 @@ async function finish(reason){
   if(S.finished) return;
   S.finished = true;
   clearInterval(S.timer);
+  liveCurveStop();
+  focusExitAll();
   const secs = S.startedAt ? Math.max(1, Math.round((Date.now()-S.startedAt)/1000)) : 0;
   const wpm = secs ? Math.round(S.correct * 12 / secs) : 0;
   const acc = accuracy(S.correct, S.errors);
   const rec = { t:Date.now(), label:S.label, material:S.material, wpm, acc, chars:S.correct, errs:S.errors, secs };
+  lastResult = rec;
+  if(wpm && rec.chars) StudioSound.complete();
   const modal = document.getElementById('modal');
   const tip = document.getElementById('mdSaveTip');
   const resultId = ++resultSequence;
@@ -2756,6 +2872,7 @@ async function submitAuth(){
     updateAuthUI();
     hideAuthModalAnimated();
     syncFavsFromServer();
+    syncPrefsFromServer();
     if(data.linked_records > 0) alert('已自动关联 ' + data.linked_records + ' 条同名历史成绩。');
     switchTab('daily');
   }catch(e){
@@ -2768,10 +2885,12 @@ async function logout(){
   try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
   currentUser = null;
   document.getElementById('accountModal').classList.add('hidden');
+  document.getElementById('shareModal').classList.add('hidden');
   resultSequence++;
   document.getElementById('modal').classList.add('hidden');
   resetSession(true);
   lastDailyResult = null;
+  lastResult = null;
   historyRecords = [];
   // 清空日常练习现场，避免切换账号后残留上一人的进度
   D.list = []; D.startedAt = null; D.idx = 0; D.busy = false;
@@ -2808,7 +2927,7 @@ async function loadSession(){
   }catch(e){ currentUser = null; }
   updateAuthUI();
   document.getElementById('authModal').classList.toggle('hidden', !!currentUser);
-  if(currentUser){ syncFavsFromServer(); switchTab('daily'); }
+  if(currentUser){ syncFavsFromServer(); syncPrefsFromServer(); switchTab('daily'); }
 }
 function selectStudioTab(tab){
   const active = document.getElementById('tab-'+tab);
@@ -2840,7 +2959,7 @@ function closeSidebar(restoreFocus){
 }
 function applyTheme(theme, save){
   document.documentElement.setAttribute('data-theme', theme);
-  if(save){ try{ localStorage.setItem('typingTheme', theme); }catch(e){} }
+  if(save){ prefLocalSet('theme', theme); pushPref('theme', theme); }
   const lightBtn = document.getElementById('modeLightBtn');
   const darkBtn = document.getElementById('modeDarkBtn');
   if(lightBtn) lightBtn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
@@ -2861,8 +2980,10 @@ function setThemeMode(mode){
 function setMotionMode(mode){
   if(!window.StudioMotion) return;
   StudioMotion.set(mode);
+  pushPref('motion', mode);
   syncMotionUI();
-  if(mode === 'off') stopMotionFx();
+  if(mode === 'off'){ stopMotionFx(); liveCurveStop(); }
+  else if(S.startedAt && !S.finished) liveCurveStart();
 }
 function syncMotionUI(){
   if(!window.StudioMotion) return;
@@ -2877,6 +2998,8 @@ document.addEventListener('visibilitychange', ()=>{
   const ab = document.querySelector('.ambient-bg');
   if(ab) ab.style.animationPlayState = document.hidden ? 'paused' : '';
   if(ab) ab.querySelectorAll('i').forEach(el=>{ el.style.animationPlayState = document.hidden ? 'paused' : ''; });
+  if(document.hidden) liveCurveStop();
+  else if(S.startedAt && !S.finished) liveCurveStart();
 });
 let themeXfadeTimer = null;
 function themeCrossfade(){
@@ -2975,6 +3098,370 @@ function showRecordBadge(id, isRecord){
   el.classList.toggle('hidden', !isRecord);
   if(isRecord){ el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; }
 }
+/* ---------- 批A：偏好后端同步（本机缓存首屏防闪烁，登录后拉取应用，变更写穿） ---------- */
+const PREF_KEYS = {theme:'typingTheme', accent:'typingAccent', motion:'typingMotion', sound:'typingSound', soundStyle:'typingSoundStyle', ignoreCase:'typingIgnoreCase', autoSpeak:'dailyAutoSpeak'};
+function prefLocalGet(key){ try{ return localStorage.getItem(PREF_KEYS[key]); }catch(e){ return null; } }
+function prefLocalSet(key, val){
+  try{
+    if(val === null || val === undefined || val === '') localStorage.removeItem(PREF_KEYS[key]);
+    else localStorage.setItem(PREF_KEYS[key], val);
+  }catch(e){}
+}
+function pushPref(key, val){
+  if(!currentUser) return;
+  const out = (val === null || val === undefined) ? '' : String(val);
+  try{ if(out === '') localStorage.removeItem(PREF_KEYS[key]); else localStorage.setItem(PREF_KEYS[key], out); }catch(e){}
+  fetch('/api/prefs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prefs:{[key]: out}})}).catch(()=>{});
+}
+async function syncPrefsFromServer(){
+  if(!currentUser) return;
+  try{
+    const res = await fetch('/api/prefs');
+    if(!res.ok) return;
+    const data = await res.json();
+    const p = data.prefs || {};
+    // 本机有、服务端没有的键：首次同步时把本机偏好上传（老用户平滑迁移）
+    const missing = {};
+    Object.keys(PREF_KEYS).forEach(k=>{
+      if(!(k in p)){ const lv = prefLocalGet(k); if(lv !== null) missing[k] = lv; }
+    });
+    if(Object.keys(missing).length){
+      fetch('/api/prefs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prefs:missing})}).catch(()=>{});
+    }
+    // 服务端空串 = 已恢复默认：清本机缓存并回落默认（跨设备重置能传播）
+    if('theme' in p){
+      if(p.theme==='light'||p.theme==='dark'){ prefLocalSet('theme', p.theme); applyTheme(p.theme, false); }
+      else if(p.theme===''){ prefLocalSet('theme', null); applyTheme(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', false); }
+    }
+    if('accent' in p){
+      const hex = /^#[0-9a-f]{6}$/i.test(p.accent) ? p.accent.toLowerCase() : '';
+      prefLocalSet('accent', hex || null);
+      if(window.StudioAccent){ StudioAccent.apply(hex || null, document.documentElement.getAttribute('data-theme')==='dark'); syncAccentUI(); }
+    }
+    if('motion' in p && window.StudioMotion){
+      const mv = (p.motion==='full'||p.motion==='lite'||p.motion==='off') ? p.motion : 'full';
+      if(p.motion===''){ prefLocalSet('motion', null); StudioMotion.set(mv); }
+      else { prefLocalSet('motion', mv); document.documentElement.setAttribute('data-motion', mv); }
+      syncMotionUI();
+      if(mv==='off') stopMotionFx();
+      if(S.startedAt && !S.finished){ if(mv==='off') liveCurveStop(); else liveCurveStart(); }
+    }
+    if('ignoreCase' in p){
+      if(p.ignoreCase===''){ prefLocalSet('ignoreCase', null); ignoreCase = false; }
+      else { prefLocalSet('ignoreCase', p.ignoreCase); ignoreCase = p.ignoreCase==='1'; }
+      const cb=document.getElementById('ignoreCaseToggle'); if(cb) cb.checked=ignoreCase;
+    }
+    if('autoSpeak' in p){ prefLocalSet('autoSpeak', p.autoSpeak === '' ? null : p.autoSpeak); }
+    if('sound' in p){
+      if(p.sound===''){ prefLocalSet('sound', null); StudioSound.enabled = true; }
+      else { prefLocalSet('sound', p.sound); StudioSound.enabled = p.sound === '1'; }
+    }
+    if('soundStyle' in p){
+      if(p.soundStyle===''){ prefLocalSet('soundStyle', null); StudioSound.style = 'soft'; }
+      else if(['soft','mech','typewriter'].indexOf(p.soundStyle) >= 0){ prefLocalSet('soundStyle', p.soundStyle); StudioSound.style = p.soundStyle; }
+    }
+    syncSoundUI();
+  }catch(e){}
+}
+/* ---------- 批A：按键音效（WebAudio 合成，默认开·柔和，三风格） ---------- */
+const StudioSound = {
+  ctx:null, enabled:true, style:'soft',
+  init(){
+    const s = prefLocalGet('sound'); this.enabled = s === null ? true : s === '1';
+    const st = prefLocalGet('soundStyle'); this.style = (st==='mech'||st==='typewriter') ? st : 'soft';
+  },
+  unlock(){
+    if(!this.enabled) return;
+    if(!this.ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      try{ this.ctx = new AC(); }catch(e){ return; }
+    }
+    if(this.ctx.state === 'suspended') this.ctx.resume().catch(()=>{});
+  },
+  _env(g, t0, a, peak, dur){
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  },
+  _tone(freq, type, peak, dur, when){
+    const c = this.ctx; if(!c) return;
+    const t0 = c.currentTime + (when || 0);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    this._env(g, t0, 0.004, peak, dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  _noise(peak, dur, filterFreq, when){
+    const c = this.ctx; if(!c) return;
+    const t0 = c.currentTime + (when || 0);
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = filterFreq; f.Q.value = 0.9;
+    const g = c.createGain(); this._env(g, t0, 0.002, peak, dur);
+    src.connect(f); f.connect(g); g.connect(c.destination);
+    src.start(t0);
+  },
+  key(ok){
+    if(!this.enabled) return;
+    this.unlock(); if(!this.ctx || this.ctx.state !== 'running') return;
+    if(!ok){ this._tone(150, 'sine', 0.10, 0.11); return; }
+    if(this.style === 'mech'){ this._noise(0.09, 0.035, 2600); this._tone(210, 'triangle', 0.05, 0.05); }
+    else if(this.style === 'typewriter'){ this._noise(0.11, 0.025, 3800); this._tone(520, 'square', 0.022, 0.03); }
+    else { this._tone(660 + Math.random()*60, 'sine', 0.055, 0.06); }
+  },
+  backspace(){
+    if(!this.enabled) return;
+    this.unlock(); if(!this.ctx || this.ctx.state !== 'running') return;
+    this._tone(340, 'sine', 0.04, 0.05);
+  },
+  complete(){
+    if(!this.enabled) return;
+    this.unlock(); if(!this.ctx || this.ctx.state !== 'running') return;
+    [523.25, 659.25, 783.99].forEach((f,i)=>this._tone(f, 'sine', 0.07, 0.16, i*0.09));
+  }
+};
+function setSoundOn(on){
+  StudioSound.enabled = !!on;
+  prefLocalSet('sound', on ? '1' : '0'); pushPref('sound', on ? '1' : '0');
+  if(on){ StudioSound.unlock(); StudioSound.key(true); }
+  syncSoundUI();
+}
+function setSoundStyle(style){
+  if(['soft','mech','typewriter'].indexOf(style) < 0) return;
+  StudioSound.style = style;
+  prefLocalSet('soundStyle', style); pushPref('soundStyle', style);
+  StudioSound.unlock(); StudioSound.key(true);
+  syncSoundUI();
+}
+function syncSoundUI(){
+  const on = StudioSound.enabled;
+  const onBtn = document.getElementById('soundOnBtn'), offBtn = document.getElementById('soundOffBtn');
+  if(onBtn) onBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if(offBtn) offBtn.setAttribute('aria-pressed', on ? 'false' : 'true');
+  const label = document.getElementById('soundStateLabel');
+  if(label) label.textContent = on ? '开' : '关';
+  [['soundSoftBtn','soft'],['soundMechBtn','mech'],['soundTypeBtn','typewriter']].forEach(([id,s])=>{
+    const b = document.getElementById(id);
+    if(b) b.setAttribute('aria-pressed', StudioSound.style === s ? 'true' : 'false');
+  });
+}
+/* ---------- 批A：两段式专注模式 ---------- */
+let focusLevel = 0; // 0 正常 / 1 半专注 / 2 全屏
+function focusSet(level){
+  focusLevel = level;
+  const root = document.documentElement;
+  root.classList.toggle('focus-half', level === 1);
+  root.classList.toggle('focus-full', level === 2);
+  if(level > 0) syncFocusCapsule();
+  // 焦点保持在打字输入，避免过渡后丢键（移动端聚焦隐藏 input 唤起键盘）
+  requestAnimationFrame(()=>{
+    try{
+      if(matchMedia('(max-width:930px)').matches) focusTypeInput();
+      else document.getElementById('typeArea').focus({preventScroll:true});
+    }catch(e){}
+  });
+}
+function focusStepDown(){
+  if(focusLevel === 2) focusSet(1);
+  else if(focusLevel === 1) focusSet(0);
+}
+// Esc 在打字区按键处理器里同步拦截（先于对话框监听器），避免焦点在隐藏 input 时事件路径差异
+function focusEscHandler(e){
+  if(e.key === 'Escape' && focusLevel > 0 && S.text && !S.finished){
+    e.preventDefault();
+    focusStepDown();
+  }
+}
+function focusExitAll(){ focusSet(0); }
+function syncFocusCapsule(){
+  document.getElementById('fcWpm').textContent = document.getElementById('stWpm').textContent;
+  document.getElementById('fcAcc').textContent = document.getElementById('stAcc').textContent;
+  document.getElementById('fcTime').textContent = document.getElementById('stTime').textContent;
+  document.getElementById('fcErr').textContent = document.getElementById('stErr').textContent;
+  document.getElementById('fcTimeLabel').textContent = S.duration ? '剩余' : '用时';
+}
+/* ---------- 批A：实时 WPM 曲线 ---------- */
+let liveCurveSamples = [], liveCurveRaf = 0, liveCurveLastSample = 0;
+function liveCurveReset(){
+  liveCurveSamples = []; liveCurveLastSample = 0;
+  liveCurveStop();
+  const cv = document.getElementById('liveCurve');
+  if(cv){ const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height); }
+}
+function liveCurveSample(){
+  if(!S.startedAt || S.finished) return;
+  const now = Date.now();
+  if(now - liveCurveLastSample < 950) return;
+  liveCurveLastSample = now;
+  const mins = (now - S.startedAt) / 60000;
+  const wpm = mins > 0.008 ? Math.round((S.correct/5)/mins) : 0;
+  liveCurveSamples.push(wpm);
+  if(liveCurveSamples.length > 240) liveCurveSamples.shift();
+  if(!liveCurveRaf) liveCurveDraw(performance.now());
+}
+function liveCurveStart(){
+  liveCurveStop();
+  const mode = window.StudioMotion ? StudioMotion.get() : 'full';
+  if(mode === 'full' && !document.hidden){
+    const loop = (t)=>{ liveCurveDraw(t); liveCurveRaf = requestAnimationFrame(loop); };
+    liveCurveRaf = requestAnimationFrame(loop);
+  }
+}
+function liveCurveStop(){ if(liveCurveRaf){ cancelAnimationFrame(liveCurveRaf); liveCurveRaf = 0; } }
+function liveCurveDraw(t){
+  const cv = document.getElementById('liveCurve');
+  const wrap = document.getElementById('liveCurveWrap');
+  if(!cv || !wrap || wrap.closest('.hidden')) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  if(cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const pts = liveCurveSamples;
+  if(!pts.length){
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+    ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('开始输入后，这里绘制实时速度曲线', 10, H/2+4);
+    return;
+  }
+  const css = getComputedStyle(document.documentElement);
+  const primary = css.getPropertyValue('--primary').trim();
+  const padT = 16, padB = 8, padL = 10, padR = 14;
+  const iw = W-padL-padR, ih = H-padT-padB;
+  const maxW = Math.max(...pts, 20) * 1.15;
+  const n = Math.max(pts.length, 2);
+  const x = i => padL + iw * i / (n-1);
+  const y = v => padT + ih * (1 - v/maxW);
+  // 面积填充（主题色渐变）
+  const grad = ctx.createLinearGradient(0, padT, 0, H);
+  grad.addColorStop(0, hexToRgba(primary, 0.22));
+  grad.addColorStop(1, hexToRgba(primary, 0.02));
+  ctx.beginPath();
+  pts.forEach((v,i)=>{ i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)); });
+  ctx.lineTo(x(pts.length-1), H-padB); ctx.lineTo(x(0), H-padB); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  // 描边
+  ctx.beginPath();
+  pts.forEach((v,i)=>{ i ? ctx.lineTo(x(i),y(v)) : ctx.moveTo(x(i),y(v)); });
+  ctx.strokeStyle = primary; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+  // 尾点呼吸（full 档）
+  const lx = x(pts.length-1), ly = y(pts[pts.length-1]);
+  const mode = window.StudioMotion ? StudioMotion.get() : 'full';
+  let r = 3.2;
+  if(mode === 'full' && typeof t === 'number') r = 3.2 + Math.sin(t/300) * 1.1;
+  ctx.beginPath(); ctx.arc(lx, ly, r + 3.5, 0, 7); ctx.fillStyle = hexToRgba(primary, 0.18); ctx.fill();
+  ctx.beginPath(); ctx.arc(lx, ly, r, 0, 7); ctx.fillStyle = primary; ctx.fill();
+  // 当前值标注
+  ctx.fillStyle = primary; ctx.font = '600 11px sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText(pts[pts.length-1] + ' WPM', W - padR, 12);
+}
+function hexToRgba(hex, a){
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if(!m) return 'rgba(40,92,66,' + a + ')';
+  const n = parseInt(m[1], 16);
+  return 'rgba(' + (n>>16&255) + ',' + (n>>8&255) + ',' + (n&255) + ',' + a + ')';
+}
+/* ---------- 批A：成绩分享卡 ---------- */
+let lastResult = null, shareDataUrl = null;
+async function fetchStreak(){
+  if(!currentUser) return null;
+  try{
+    const res = await fetch('/api/streak');
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ return null; }
+}
+async function openShareCard(rec){
+  if(!rec) return;
+  const streak = await fetchStreak();
+  const cv = document.createElement('canvas');
+  cv.width = 1200; cv.height = 675;
+  const ctx = cv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const primary = css.getPropertyValue('--primary').trim() || '#285c42';
+  const accent = css.getPropertyValue('--accent').trim() || primary;
+  const bg = dark ? (css.getPropertyValue('--bg').trim() || '#0b0e0c') : '#f7f8f2';
+  const card = dark ? (css.getPropertyValue('--card').trim() || '#151b17') : '#fffefa';
+  const text = dark ? (css.getPropertyValue('--text').trim() || '#ecf0ed') : '#1d2b24';
+  const muted = dark ? (css.getPropertyValue('--muted').trim() || '#a4aba6') : '#59685e';
+  // 背景 + 柔光（径向渐变，无滤镜）
+  ctx.fillStyle = bg; ctx.fillRect(0,0,1200,675);
+  const glow = (cx,cy,r,color,alpha)=>{
+    const g = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    g.addColorStop(0, hexToRgba(color, alpha)); g.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = g; ctx.fillRect(0,0,1200,675);
+  };
+  glow(1050, 90, 520, primary, dark ? 0.20 : 0.14);
+  glow(120, 620, 480, accent, dark ? 0.14 : 0.10);
+  // 主卡片
+  const rr = (x,y,w,h,r)=>{ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); };
+  rr(60, 60, 1080, 555, 26);
+  ctx.fillStyle = card; ctx.fill();
+  ctx.strokeStyle = hexToRgba(primary, 0.35); ctx.lineWidth = 2; ctx.stroke();
+  // 顶部品牌
+  ctx.fillStyle = primary; ctx.font = '600 24px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('IELTS TYPE STUDIO · 雅思打字练习', 110, 130);
+  ctx.fillStyle = muted; ctx.font = '20px sans-serif'; ctx.textAlign = 'right';
+  const d = new Date(rec.t || Date.now());
+  ctx.fillText(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'), 1090, 130);
+  // 大数字 WPM
+  ctx.fillStyle = text; ctx.font = '800 150px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(String(rec.wpm), 110, 330);
+  const wpmW = ctx.measureText(String(rec.wpm)).width;
+  ctx.fillStyle = primary; ctx.font = '700 40px sans-serif';
+  ctx.fillText('WPM', 120 + wpmW, 330);
+  ctx.fillStyle = muted; ctx.font = '22px sans-serif';
+  ctx.fillText('每分钟字数 · ' + (rec.label || '练习'), 110, 372);
+  // 三个数据格
+  const cells = [
+    [rec.acc + '%', '准确率'],
+    [rec.secs + 's', '用时'],
+    [String(rec.chars), '正确字符']
+  ];
+  cells.forEach((c,i)=>{
+    const cx = 110 + i * 250;
+    ctx.fillStyle = text; ctx.font = '750 52px sans-serif';
+    ctx.fillText(c[0], cx, 480);
+    ctx.fillStyle = muted; ctx.font = '20px sans-serif';
+    ctx.fillText(c[1], cx, 512);
+  });
+  // 右侧：昵称 + 连续打卡
+  ctx.textAlign = 'right';
+  ctx.fillStyle = text; ctx.font = '700 34px sans-serif';
+  ctx.fillText(currentUser ? currentUser.display_name : '打字练习', 1090, 470);
+  if(streak){
+    ctx.fillStyle = primary; ctx.font = '600 26px sans-serif';
+    ctx.fillText('🔥 连续打卡 ' + streak.current + ' 天', 1090, 512);
+    ctx.fillStyle = muted; ctx.font = '18px sans-serif';
+    ctx.fillText('历史最佳 ' + streak.best + ' 天', 1090, 542);
+  }
+  // 底部语料与口号
+  ctx.textAlign = 'left'; ctx.fillStyle = muted; ctx.font = '18px sans-serif';
+  const mat = (rec.material || '').slice(0, 40);
+  ctx.fillText('语料：' + mat, 110, 578);
+  ctx.textAlign = 'right'; ctx.fillStyle = hexToRgba(primary, 0.85); ctx.font = '600 18px sans-serif';
+  ctx.fillText('每天 10 分钟，打出雅思手感', 1090, 578);
+  shareDataUrl = cv.toDataURL('image/png');
+  document.getElementById('shareImg').src = shareDataUrl;
+  document.getElementById('shareModal').classList.remove('hidden');
+}
+function closeShareCard(){
+  document.getElementById('shareModal').classList.add('hidden');
+}
+function downloadShareCard(){
+  if(!shareDataUrl) return;
+  const a = document.createElement('a');
+  a.href = shareDataUrl;
+  a.download = 'typing-share-' + new Date().toISOString().slice(0,10) + '.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
 /* ---------- 个性化主题色 ---------- */
 function accentHex(){
   let v = null;
@@ -2988,10 +3475,9 @@ function accentLabel(hex){
 function setAccent(hex){
   hex = (hex || '').toLowerCase();
   if(!/^#[0-9a-f]{6}$/.test(hex)) return;
-  try{
-    if(hex === StudioAccent.defaultHex) localStorage.removeItem('typingAccent');
-    else localStorage.setItem('typingAccent', hex);
-  }catch(e){}
+  const stored = hex === StudioAccent.defaultHex ? null : hex;
+  prefLocalSet('accent', stored);
+  pushPref('accent', stored === null ? '' : stored);
   themeCrossfade();
   StudioAccent.apply(hex, document.documentElement.getAttribute('data-theme') === 'dark');
   syncAccentUI();
@@ -3157,7 +3643,8 @@ function initAccentPicker(){
 }
 function toggleIgnoreCase(){
   ignoreCase = document.getElementById('ignoreCaseToggle').checked;
-  try{ localStorage.setItem('typingIgnoreCase', ignoreCase ? '1' : '0'); }catch(e){}
+  prefLocalSet('ignoreCase', ignoreCase ? '1' : '0');
+  pushPref('ignoreCase', ignoreCase ? '1' : '0');
 }
 function initIgnoreCase(){
   let saved = false;
@@ -3171,6 +3658,8 @@ function initIgnoreCase(){
   initAccentPicker();
   syncMotionUI();
   initIgnoreCase();
+  StudioSound.init();
+  syncSoundUI();
   initHomeSentence();
 })();
 (function initAuthEvents(){
@@ -3195,7 +3684,7 @@ async function renderHistory(){
   try{
     const res = await fetch('/api/records?scope=mine&limit=60');
     if(account!==currentUser || request!==historyRequest) return;
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     if(!res.ok) throw new Error();
     const data = await res.json();
     if(account!==currentUser || request!==historyRequest) return;
@@ -3219,12 +3708,19 @@ async function renderHistory(){
     <div class="cell"><b>${avg}</b><span>平均 WPM</span></div>
     <div class="cell"><b>${avgAcc}%</b><span>平均准确率</span></div>
     <div class="cell"><b>${total}</b><span>累计练习次数</span></div>`;
-  let rows = h.slice().reverse().map(r=>{
+  let rows = h.slice().reverse().map((r,ri)=>{
     const d = dateFromRecord(r.t);
     return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td>
-    <td>${esc(r.label)}</td><td>${r.wpm}</td><td>${r.acc}%</td><td>${r.errs}</td><td>${r.secs}s</td></tr>`;
+    <td>${esc(r.label)}</td><td>${r.wpm}</td><td>${r.acc}%</td><td>${r.errs}</td><td>${r.secs}s</td>
+    <td><button type="button" class="btn ghost share-row-btn" data-share-idx="${ri}" aria-label="生成这条成绩的分享卡">分享</button></td></tr>`;
   }).join('');
-  tbl.innerHTML = `<table><tr><th>时间</th><th>模式</th><th>WPM</th><th>准确率</th><th>错误</th><th>用时</th></tr>${rows}</table>`;
+  tbl.innerHTML = `<table><tr><th>时间</th><th>模式</th><th>WPM</th><th>准确率</th><th>错误</th><th>用时</th><th></th></tr>${rows}</table>`;
+  tbl.querySelectorAll('[data-share-idx]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const r = h.slice().reverse()[parseInt(btn.dataset.shareIdx, 10)];
+      if(r) openShareCard({ t:r.t, label:r.label, material:r.material, wpm:r.wpm, acc:r.acc, chars:r.chars, errs:r.errs, secs:r.secs });
+    });
+  });
   drawChart(h);
 }
 function drawChart(h){
@@ -3437,6 +3933,7 @@ function updateDailyStats(){
 }
 function dailyBackspace(){
   if(D.pos>0){
+    StudioSound.backspace();
     D.correct--;
     const previous = D.spans[D.pos--];
     if(previous) previous.classList.remove('done-err');
@@ -3450,7 +3947,9 @@ function dailyChar(ch){
   const item = D.list[D.idx];
   const expected = item.w[D.pos];
   const spans = D.spans;
-  if(ignoreCase ? ch.toLowerCase()===expected.toLowerCase() : ch===expected){
+  const dailyOk = ignoreCase ? ch.toLowerCase()===expected.toLowerCase() : ch===expected;
+  StudioSound.key(dailyOk);
+  if(dailyOk){
     D.correct++; D.pos++;
     if(spans[D.pos-1]){ spans[D.pos-1].classList.add('done-ok'); spans[D.pos-1].classList.remove('done-err'); }
     if(D.pos >= item.w.length){
@@ -3553,12 +4052,14 @@ async function showDailySummary(){
   countUp('dsTime', secs, 600, 's');
   document.getElementById('dailyTip').textContent = '练习完成！WPM ' + wpm + ' · 准确率 ' + acc + '% · 跳过 ' + D.skipped + ' 个。点击"再来一轮"继续。';
   showRecordBadge('dsRecord', checkPersonalBest(wpm));
+  if(wpm && D.correct) StudioSound.complete();
   launchConfetti();
   // 保存成绩，失败时给出明显红字提示并允许重试
   const rec = { t:Date.now(), student:getStudent(), label:'日常练习', material:(D.topicLabel || '全部核心词') + ' × ' + total, wpm, acc, chars:D.correct, errs:D.errors, secs };
   D.list = [];
   if(!rec.chars || !rec.wpm) return;
   lastDailyResult = rec;
+  lastResult = rec;
   const saved = await saveDailyRecord(rec);
   if(lastDailyResult===rec) showDailySaveTip(!saved);
 }
@@ -3659,7 +4160,8 @@ function updateAutoSpeakUI(){
 }
 function dailyAutoSpeakToggle(){
   const on = !autoSpeakEnabled();
-  try{ localStorage.setItem('dailyAutoSpeak', on ? '1' : '0'); }catch(e){}
+  prefLocalSet('autoSpeak', on ? '1' : '0');
+  pushPref('autoSpeak', on ? '1' : '0');
   updateAutoSpeakUI();
   if(on) dailySpeak();
 }
@@ -3832,7 +4334,7 @@ async function loadAdmin(){
   const box = document.getElementById('adminStudents');
   try{
     const res = await fetch('/api/admin/students');
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || '加载失败');
     renderAdminStudents(data.students || []);
@@ -3918,7 +4420,7 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
 });
 // Keep keyboard focus on the topmost visible dialog.
 (function initStudioDialogs(){
-  const dialogs = ['pwModal','authModal','modal','appearanceModal','accountModal'].map(id=>document.getElementById(id));
+  const dialogs = ['pwModal','authModal','modal','appearanceModal','accountModal','shareModal'].map(id=>document.getElementById(id));
   const getDialog = () => dialogs.find(el=>!el.classList.contains('hidden'));
   const focusables = dialog => Array.from(dialog.querySelectorAll('button:not([disabled]),input:not([disabled])')).filter(el=>el.getClientRects().length);
   let previous = null;
@@ -3964,6 +4466,8 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
       else if(active && active.id==='modal') closeModal();
       else if(active && active.id==='appearanceModal') closeAppearance();
       else if(active && active.id==='accountModal') closeAccount();
+      else if(active && active.id==='shareModal') closeShareCard();
+      else if(!active && focusLevel > 0 && !(S.text && !S.finished)) focusStepDown(); // 打字会话内的 Esc 已由 typeKeydown 处理
       else if(!active && document.getElementById('sidebar').classList.contains('open')) closeSidebar(true);
     }
     if(e.key!=='Tab' || !active) return;

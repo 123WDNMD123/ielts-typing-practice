@@ -155,6 +155,13 @@ def init_db():
             PRIMARY KEY(user_id, word)
         )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id)")
+        # 个性化偏好：随账号同步（主题色/深浅/动效/音效/目标等），本机缓存仅用于首屏防闪烁。
+        c.execute("""CREATE TABLE IF NOT EXISTS prefs(
+            user_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY(user_id, key)
+        )""")
         migrate_display_name_unique(c)
 
 
@@ -616,6 +623,92 @@ def api_favs_update(user, body):
     return {"ok": True}
 
 
+# ---------------- 个性化偏好 API（随账号同步） ----------------
+
+# 白名单 + 取值校验：偏好只存展示/行为配置，不存敏感数据。
+PREF_VALIDATORS = {
+    "theme": lambda v: v == "" or v in ("light", "dark"),
+    "accent": lambda v: v == "" or bool(re.fullmatch(r"#[0-9a-fA-F]{6}", v)),
+    "motion": lambda v: v == "" or v in ("full", "lite", "off"),
+    "sound": lambda v: v == "" or v in ("0", "1"),
+    "soundStyle": lambda v: v == "" or v in ("soft", "mech", "typewriter"),
+    "ignoreCase": lambda v: v == "" or v in ("0", "1"),
+    "autoSpeak": lambda v: v == "" or v in ("0", "1"),
+    "dailyGoal": lambda v: v == "" or (v.isdigit() and 50 <= int(v) <= 100000),
+}
+
+
+def api_prefs_get(user):
+    with db() as c:
+        rows = c.execute("SELECT key, value FROM prefs WHERE user_id=?", (user["id"],)).fetchall()
+    return {"prefs": {r["key"]: r["value"] for r in rows}}
+
+
+def api_prefs_put(user, body):
+    items = body.get("prefs")
+    if not isinstance(items, dict) or not items:
+        raise ApiError("请求格式错误", 400)
+    if len(items) > len(PREF_VALIDATORS):
+        raise ApiError("偏好项过多", 400)
+    cleaned = {}
+    for k, v in items.items():
+        if k not in PREF_VALIDATORS:
+            raise ApiError("未知偏好项：" + str(k)[:32], 400)
+        if not isinstance(v, str) or len(v) > 256:
+            raise ApiError("偏好值格式错误", 400)
+        if not PREF_VALIDATORS[k](v):
+            raise ApiError("偏好值不合法：" + k, 400)
+        cleaned[k] = v
+    with db() as c:
+        for k, v in cleaned.items():
+            if v == "":
+                # 空串 = 恢复默认：删除服务端行，其他设备下次同步回落到本机默认
+                c.execute("DELETE FROM prefs WHERE user_id=? AND key=?", (user["id"], k))
+            else:
+                c.execute("INSERT INTO prefs(user_id,key,value) VALUES(?,?,?) "
+                          "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value",
+                          (user["id"], k, v))
+    return {"ok": True}
+
+
+# ---------------- 打卡连续天数（≥100 正确字符/天，北京时间切日） ----------------
+
+STREAK_THRESHOLD = 100
+CN_OFFSET = 8 * 3600  # 服务器与用户口径统一按北京时间
+
+
+def _cn_day(ts_ms):
+    return (int(ts_ms) // 1000 + CN_OFFSET) // 86400
+
+
+def api_streak(user):
+    with db() as c:
+        rows = c.execute(
+            "SELECT t, chars FROM records WHERE user_id=? AND chars>0 ORDER BY t",
+            (user["id"],)).fetchall()
+    per_day = {}
+    for r in rows:
+        d = _cn_day(r["t"])
+        per_day[d] = per_day.get(d, 0) + (r["chars"] or 0)
+    today = _cn_day(int(time.time() * 1000))
+    today_chars = per_day.get(today, 0)
+    # 当前连续：从今天（未达标则从昨天）往回数达标日
+    cur = 0
+    d = today if today_chars >= STREAK_THRESHOLD else today - 1
+    while per_day.get(d, 0) >= STREAK_THRESHOLD:
+        cur += 1
+        d -= 1
+    # 历史最佳连续
+    best = run = 0
+    prev = None
+    for day in sorted(k for k, v in per_day.items() if v >= STREAK_THRESHOLD):
+        run = run + 1 if prev is not None and day == prev + 1 else 1
+        best = max(best, run)
+        prev = day
+    return {"current": cur, "best": best, "today_chars": today_chars,
+            "threshold": STREAK_THRESHOLD, "today_done": today_chars >= STREAK_THRESHOLD}
+
+
 def accepts_gzip(header):
     qualities = {}
     for entry in header.lower().split(","):
@@ -740,6 +833,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(api_records(params, self.require_user()))
                 if path == "/api/favs":
                     return self.send_json(api_favs_list(self.require_user()))
+                if path == "/api/prefs":
+                    return self.send_json(api_prefs_get(self.require_user()))
+                if path == "/api/streak":
+                    return self.send_json(api_streak(self.require_user()))
                 if path == "/api/summary":
                     return self.send_json(api_summary(self.require_user()))
                 if path == "/api/admin/students":
@@ -801,6 +898,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(handle_post_records(self.read_json(), self.require_user()))
             if path == "/api/favs":
                 return self.send_json(api_favs_update(self.require_user(), self.read_json()))
+            if path == "/api/prefs":
+                return self.send_json(api_prefs_put(self.require_user(), self.read_json()))
             if path == "/api/admin/students":
                 return self.send_json(admin_create_student(self.require_user(), self.read_json()))
             if path.startswith("/api/admin/students/"):
