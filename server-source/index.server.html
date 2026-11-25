@@ -144,8 +144,9 @@ label{font-size:13px;color:var(--muted)}input::placeholder{color:var(--muted);op
 .sidebar nav button::before{content:attr(data-index);display:grid;place-items:center;width:25px;height:24px;border:1px solid var(--border);border-radius:5px;font:650 10px var(--mono);color:var(--muted);flex:none}
 .sidebar nav button:hover,.sidebar nav button.active{background:var(--primary-soft);color:var(--text)}.sidebar nav button.active{border-color:var(--border)}.sidebar nav button.active::before{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
 .sidebar-foot{margin-top:auto;display:grid;gap:8px}.user-card{min-width:0;display:flex;gap:9px;align-items:center;padding:9px 8px;border:1px solid var(--border);border-radius:10px;width:100%;text-align:left;background:transparent;color:var(--text)}.user-card:hover{background:var(--primary-soft);border-color:var(--primary)}.user-icon{width:33px;height:33px;display:grid;place-items:center;border-radius:8px;background:var(--primary-soft);color:var(--primary);flex:none}.user-body{min-width:0;flex:1}.user-body b,.user-body span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-body span{font-size:11px;color:var(--muted)}.user-caret{color:var(--muted);font-size:12px;flex:none;transition:transform .15s ease}.user-card:hover .user-caret{color:var(--primary);transform:translateX(2px)}.sidebar-foot .btn{width:100%;font-size:13px}.sidebar-backdrop{position:fixed;inset:0;z-index:35;background:#10191380;border:0;width:100%;height:100%}
-.accent-entry{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-weight:650;font-size:13px}.accent-entry:hover{background:var(--primary-soft);border-color:var(--primary)}.accent-entry-dot{width:13px;height:13px;border-radius:50%;background:var(--primary);flex:none}.accent-entry-name{margin-left:auto;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px;font-weight:600}.accent-entry-caret{color:var(--muted);font-size:12px}
-#appearanceModal{position:fixed;inset:0;z-index:105;display:flex;overflow:auto;padding:14px;background:#101913a3}.appearance-panel{margin:auto;width:min(100%,400px);min-width:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;animation:appear .18s ease both}.appearance-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}.appearance-head h2{margin:0;font-size:19px}.appearance-close{min-height:32px;padding:5px 11px;font-size:12px}.appearance-section{margin-top:15px;padding-top:13px;border-top:1px solid var(--border)}.appearance-label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-weight:650;margin-bottom:10px}#accentName{font-size:12px;font-weight:650;color:var(--primary)}.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.mode-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.mode-switch button:hover{color:var(--text)}.mode-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}
+/* 主题色圆点：现用于统一设置入口的副标题，指示当前主题色 */
+.accent-entry-dot{width:13px;height:13px;border-radius:50%;background:var(--primary);flex:none}
+#settingsModal{position:fixed;inset:0;z-index:105;display:flex;overflow:auto;padding:14px;background:#101913a3}.appearance-panel{margin:auto;width:min(100%,400px);min-width:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;animation:appear .18s ease both}.appearance-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}.appearance-head h2{margin:0;font-size:19px}.appearance-close{min-height:32px;padding:5px 11px;font-size:12px}.appearance-section{margin-top:15px;padding-top:13px;border-top:1px solid var(--border)}.appearance-label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-weight:650;margin-bottom:10px}#accentName{font-size:12px;font-weight:650;color:var(--primary)}.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.mode-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.mode-switch button:hover{color:var(--text)}.mode-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}
 .motion-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.motion-switch button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650}.motion-switch button:hover{color:var(--text)}.motion-switch button[aria-pressed="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}.motion-note{font-size:11px;color:var(--muted);margin-top:7px}
 .motion-fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:130}
 /* 高级感视效：环境流光背景 / 细噪点 / 卡片悬停辉光 / 标题渐变流光（仅 full，off 全静） */
@@ -176,16 +177,18 @@ html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(
 #focusCapsule b{color:var(--text);font-size:15px;margin-right:4px;font-variant-numeric:tabular-nums}
 #focusExit{display:none;position:fixed;top:14px;right:16px;z-index:60;min-height:34px;padding:6px 14px;font-size:12px;border-radius:999px;border:1px solid var(--border);background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--muted);box-shadow:var(--shadow)}
 #focusExit:hover{color:var(--text);border-color:var(--primary-edge)}
-/* 半专注：收侧栏与页头，保留打字卡 */
+/* 半专注：收侧栏与页头，保留打字卡。
+   页头/侧栏一律用 opacity+visibility（不用 display:none）——镜头拉远时它们要能淡入回来 */
 html.focus-half .sidebar{transform:translateX(-103%);visibility:hidden}
 html.focus-half .main{margin-left:0}
-html.focus-half .page-heading,html.focus-half .studio-header{opacity:0;pointer-events:none}
+html.focus-half .page-heading,html.focus-half .studio-header{opacity:0;visibility:hidden;pointer-events:none}
 html.focus-half #keyboard{display:none}
 html.focus-half #liveStats{display:none}
 html.focus-half #focusCapsule{display:flex}
 html.focus-half #focusExit{display:block}
-/* 全屏专注：打字卡铺满视口，只留文本+曲线+细进度条 */
-html.focus-full .sidebar,html.focus-full .studio-header,html.focus-full .page-heading{display:none}
+/* 全屏专注（镜头终点）：打字卡铺满视口，只留文本+曲线+细进度条 */
+html.focus-full .sidebar{transform:translateX(-103%);visibility:hidden}
+html.focus-full .studio-header,html.focus-full .page-heading{opacity:0;visibility:hidden;pointer-events:none}
 html.focus-full .main{margin:0;padding:0}
 html.focus-full #typingSection{position:fixed;inset:0;z-index:55;margin:0;padding:0}
 html.focus-full #typingSection>.typing-card{position:absolute;inset:0;margin:0;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;padding:64px clamp(18px,6vw,90px) 26px;background:var(--bg)}
@@ -196,15 +199,35 @@ html.focus-full #progressBar{margin-top:12px}
 html.focus-full #focusCapsule{display:flex}
 html.focus-full #focusExit{display:block}
 html.focus-full .ambient-bg i{opacity:.7}
-/* 电影式过渡（仅 full 档；lite/off 直接切换） */
-html[data-motion="full"] .sidebar{transition:transform .34s cubic-bezier(.3,.9,.3,1),visibility .34s}
-html[data-motion="full"] .main{transition:margin-left .34s cubic-bezier(.3,.9,.3,1)}
-/* 注意：fixed 定位的卡片/胶囊不能用 transform 动画（会形成包含块使内部 fixed 子元素错位），只做 opacity */
-html[data-motion="full"].focus-full #typingSection>.typing-card{animation:focusZoom .42s ease both}
-html[data-motion="full"].focus-half #typingSection>.typing-card{animation:focusSettle .3s ease both}
-@keyframes focusZoom{from{opacity:.35}to{opacity:1}}
-@keyframes focusSettle{from{opacity:.75}to{opacity:1}}
-html[data-motion="full"] #focusCapsule{animation:capsuleIn .32s ease both}
+/* ===== 一镜到底（focusDolly）=====
+   0↔1↔2 全程由 JS 单一时钟驱动：卡片外框 left/top/width/height 连续插值（不做 scale，
+   文字永不畸变），辅助行同拍淡出并收拢高度，文本区 padding / 曲线高度同步插值，
+   于是每个字符的位置由布局自然连续移动——一个镜头推到底，没有第二次起跳。
+   页头、侧栏、光斑、键盘、胶囊全部挂在同一条时间线上。
+   飞行中（.focus-dolly）由 JS 逐帧写值，故关闭相关 CSS 过渡避免双重驱动。 */
+/* 合成层：外框逐帧改尺寸会让整卡（~500 字符 + 背景 + 阴影）重绘，实测 Paint 6.8ms/帧 → 掉帧。
+   把卡片与文本区各自提升为独立合成层（translateZ 提层，不改视觉），尺寸变化只走合成不重绘。
+   注意 will-change 只列 transform/opacity——left/top/width/height 不可合成，列上去反而强制重绘。 */
+#typingSection>.typing-card.focus-dolly{position:fixed;z-index:56;margin:0;display:flex;flex-direction:column;transform:translateZ(0);will-change:transform;backface-visibility:hidden}
+html.focus-dolly #typeArea{transform:translateZ(0);will-change:transform;backface-visibility:hidden}
+html.focus-dolly #liveCurveWrap,html.focus-dolly #progressBar{transform:translateZ(0)}
+html.focus-dolly #typingSection{position:fixed;inset:0;z-index:55;margin:0;padding:0;pointer-events:none}
+html.focus-dolly #typingSection>.typing-card{pointer-events:auto}
+html.focus-dolly .sidebar{transition:none}
+html.focus-dolly .main{transition:none}
+html.focus-dolly .page-heading,html.focus-dolly .studio-header{transition:none}
+html.focus-dolly .ambient-bg i{transition:none}
+html.focus-dolly #keyboard{transition:none}
+html.focus-dolly #focusCapsule,html.focus-dolly #focusExit{animation:none}
+/* 镜头外的其余内容整体淡出/淡入，避免卡片飞过时背后页面「跳」一下 */
+html.focus-dolly .studio-footer{opacity:0}
+/* 非飞行态的环境过渡（lite 档与 0→1 的兜底）；full 档飞行时由上面的 none 接管 */
+html[data-motion="full"] .sidebar{transition:transform .42s cubic-bezier(.33,.68,.24,1),visibility .42s}
+html[data-motion="full"] .main{transition:margin-left .42s cubic-bezier(.33,.68,.24,1)}
+html[data-motion="full"] .page-heading,html[data-motion="full"] .studio-header{transition:opacity .36s ease,visibility .36s}
+html[data-motion="full"] .ambient-bg i{transition:opacity .5s ease}
+html[data-motion="full"] #focusCapsule{animation:capsuleIn .36s cubic-bezier(.3,.9,.3,1) both}
+html[data-motion="full"] #focusExit{animation:capsuleIn .36s ease both}
 @keyframes capsuleIn{from{opacity:0}to{opacity:1}}
 @media(max-width:650px){
   /* 窄屏：胶囊占左侧大部分宽度，退出钮移到右下角避免重叠；错误数隐藏（结果页仍有） */
@@ -246,9 +269,9 @@ html[data-motion="full"] .auth-layout{animation:popIn .3s cubic-bezier(.2,.9,.3,
 @keyframes popIn{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
 .auth-layout.auth-exit{animation:authOut .24s ease both!important}
 @keyframes authOut{to{opacity:0;transform:scale(.97) translateY(-10px)}}
-html[data-motion="full"] #appearanceModal .appearance-panel,html[data-motion="full"] #accountModal .appearance-panel{animation:springUp .34s cubic-bezier(.22,1.36,.36,1) both}
+html[data-motion="full"] #settingsModal .appearance-panel{animation:springUp .34s cubic-bezier(.22,1.36,.36,1) both}
 @keyframes springUp{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
-@media(max-width:650px){html[data-motion="full"] #appearanceModal .appearance-panel,html[data-motion="full"] #accountModal .appearance-panel{animation:drawerSpring .42s cubic-bezier(.22,1.25,.36,1) both}}
+@media(max-width:650px){html[data-motion="full"] #settingsModal .appearance-panel{animation:drawerSpring .42s cubic-bezier(.22,1.25,.36,1) both}}
 @keyframes drawerSpring{from{transform:translateY(60%)}65%{transform:translateY(-1.5%)}to{transform:none}}
 html[data-motion="full"] .studio-hero .key-art b{animation:keyFloat 3.4s ease-in-out infinite;position:relative;overflow:hidden}
 html[data-motion="full"] .studio-hero .key-art b:nth-child(2){animation-delay:.35s}
@@ -270,8 +293,8 @@ html[data-motion="full"] .daily-summary .ds-cell:nth-child(6){animation-delay:.3
 /* 档位降级：off 全关；lite 去装饰性循环动画，保留手感微动效 */
 html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="off"] *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;gap:12px;flex-wrap:wrap}.accent-swatch{width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--border);position:relative;flex:none}.accent-swatch:hover{filter:brightness(1.12)}.accent-swatch[aria-pressed="true"]{outline:2px solid var(--primary);outline-offset:2px}.accent-custom{width:30px;height:30px;padding:0;border:1px dashed var(--border);border-radius:50%;background:conic-gradient(#c2453f,#c9a227,#5f9e3e,#2a9d8f,#3b6fb5,#7b5ea7,#c2453f);cursor:pointer;flex:none}.accent-custom:hover{filter:brightness(1.08)}.accent-custom.on{outline:2px solid var(--primary);outline-offset:2px;border-style:solid}.accent-custom input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.appearance-note{font-size:12px;margin-top:13px}
-#accountModal{position:fixed;inset:0;z-index:105;display:flex;overflow:auto;padding:14px;background:#101913a3}.account-panel{width:min(100%,440px)}.account-panel .appearance-section{margin-top:12px;padding-top:11px}.account-info{display:flex;gap:11px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}.account-info .user-icon{width:38px;height:38px;border-radius:10px}.account-info-body{min-width:0;flex:1}.account-info-body b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-info-body span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-meta{display:grid;gap:4px;margin-top:8px}.account-meta div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px}.account-meta dt{color:var(--muted)}.account-meta dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.account-form{display:grid;gap:6px}.account-form label{font-size:12px}.account-form input{width:100%;min-width:0}.account-form .btn{justify-self:start;min-height:36px;font-size:13px;padding:6px 14px}.account-msg{min-height:15px;font-size:12px;margin:0}.account-msg.err{color:var(--err)}.account-msg.ok{color:var(--ok)}.account-note{font-size:11px;color:var(--muted);margin-top:3px}
-@media(max-width:650px){#appearanceModal,#accountModal{padding:0;align-items:flex-end}.appearance-panel,.account-panel{width:100%;margin:0;border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:drawerUp .22s ease both}}
+.settings-panel{width:min(100%,440px)}.settings-panel .appearance-section{margin-top:12px;padding-top:11px}.settings-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px}.settings-tabs button{min-height:36px;border:1px solid transparent;border-radius:7px;background:none;color:var(--muted);font-weight:650;font-size:13px}.settings-tabs button:hover{color:var(--text)}.settings-tabs button[aria-selected="true"]{background:var(--primary-soft);color:var(--text);border-color:var(--border)}.settings-entry-sub{display:flex!important;align-items:center;gap:6px}.settings-entry-sub .accent-entry-dot{width:9px;height:9px}.settings-logout{width:100%;justify-content:center;color:var(--err);border-color:var(--border)}.settings-logout:hover{background:var(--err-soft);border-color:var(--err)}.account-info{display:flex;gap:11px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}.account-info .user-icon{width:38px;height:38px;border-radius:10px}.account-info-body{min-width:0;flex:1}.account-info-body b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-info-body span{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-meta{display:grid;gap:4px;margin-top:8px}.account-meta div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px}.account-meta dt{color:var(--muted)}.account-meta dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.account-form{display:grid;gap:6px}.account-form label{font-size:12px}.account-form input{width:100%;min-width:0}.account-form .btn{justify-self:start;min-height:36px;font-size:13px;padding:6px 14px}.account-msg{min-height:15px;font-size:12px;margin:0}.account-msg.err{color:var(--err)}.account-msg.ok{color:var(--ok)}.account-note{font-size:11px;color:var(--muted);margin-top:3px}
+@media(max-width:650px){#settingsModal{padding:0;align-items:flex-end}.appearance-panel,.settings-panel{width:100%;margin:0;border-radius:18px 18px 0 0;border-left:0;border-right:0;border-bottom:0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:drawerUp .22s ease both}}
 @keyframes drawerUp{from{transform:translateY(28px);opacity:.5}to{transform:none;opacity:1}}
 .main{margin-left:var(--rail-width);min-width:0;position:relative;z-index:1}.wrap{width:min(100%,1310px);margin:auto;padding:0 34px 22px}.studio-header{min-height:65px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);margin-bottom:22px}.studio-trail,.studio-edition{display:flex;align-items:center;gap:9px;white-space:nowrap}.trail-root,.trail-divider,.studio-edition{color:var(--muted)}#studioSection{font-weight:700}.studio-edition i,.overline i,.panel-chip i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--primary);flex:none}.menu-button{display:none}.studio-footer{padding:16px 0 0;margin-top:23px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:12px;color:var(--muted)}
 .studio-hero,.page-heading{border:1px solid var(--border);border-radius:var(--radius);background:var(--hero);padding:clamp(20px,3.1vw,40px);margin-bottom:19px;min-width:0}.studio-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:18px}.overline{color:var(--primary);display:flex;align-items:center;gap:8px;margin-bottom:10px}.hero-copy h1,.page-heading h1{font-size:clamp(28px,4.1vw,49px);font-weight:800;letter-spacing:-.045em}.hero-copy h1 span{display:block;font-size:clamp(15px,2vw,23px);letter-spacing:-.025em;margin-top:7px;color:var(--primary)}.hero-copy p,.page-heading p{margin-top:9px;max-width:58ch}.hero-art{text-align:right;min-width:0}.art-tag,.art-caption{display:block;color:var(--muted);font-size:9px}.art-caption{margin-top:9px}.key-art{display:flex;gap:5px;margin:8px 0 0;justify-content:flex-end}.key-art b{display:grid;place-items:center;width:clamp(30px,3.45vw,47px);aspect-ratio:1;border-radius:9px;background:var(--card);color:var(--primary);border:1px solid var(--border);box-shadow:0 3px 0 var(--border);font:750 clamp(15px,2vw,22px) var(--mono)}.key-art b:last-child{color:var(--on-primary);background:var(--primary);border-color:var(--primary)}
@@ -319,15 +342,12 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
     <button id="tab-admin" class="hidden" data-index="07" onclick="switchTab('admin')">后台管理</button>
   </nav>
   <div class="sidebar-foot">
-    <button type="button" id="accountEntry" class="user-card" onclick="openAccount()" aria-haspopup="dialog" aria-controls="accountModal" title="打开账号管理：查看账号信息、修改昵称与密码">
+    <!-- 统一设置入口：账号身份 + 当前主题色一并呈现，点击进设置面板（外观 / 账号两段） -->
+    <button type="button" id="settingsEntry" class="user-card settings-entry" onclick="openSettings()" aria-haspopup="dialog" aria-controls="settingsModal" title="打开设置：外观（主题色 / 深浅 / 动效 / 音效）与账号（信息 / 昵称 / 密码）">
       <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
-      <div class="user-body"><b id="userDisplay">未登录</b><span id="userRole">请先登录后练习</span></div>
+      <div class="user-body"><b id="userDisplay">未登录</b><span class="settings-entry-sub"><i class="accent-entry-dot" aria-hidden="true"></i><span id="settingsEntryAccent">松林绿</span></span></div>
       <span class="user-caret" aria-hidden="true">▸</span>
     </button>
-    <button type="button" id="accentEntry" class="accent-entry" onclick="openAppearance()" aria-haspopup="dialog" aria-controls="appearanceModal" title="打开外观设置：主题色与深浅模式">
-      <span class="accent-entry-dot" aria-hidden="true"></span>外观设置<span class="accent-entry-name" id="accentEntryName">松林绿</span><span class="accent-entry-caret" aria-hidden="true">▸</span>
-    </button>
-    <button type="button" id="logoutBtn" class="btn ghost hidden" onclick="logout()">退出登录</button>
   </div>
 </aside>
 <button type="button" id="sidebarBackdrop" class="sidebar-backdrop hidden" tabindex="-1" aria-label="关闭菜单" onclick="closeSidebar(true)"></button>
@@ -590,8 +610,8 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
   <!-- ========== 打字主区域（test 与 course 共用） ========== -->
   <div id="typingSection" class="hidden">
     <div class="card typing-card">
-      <div class="panel-kicker">ACTIVE SESSION / TYPE STUDIO</div>
-      <div class="row session-header">
+      <div class="panel-kicker" id="panelKicker">ACTIVE SESSION / TYPE STUDIO</div>
+      <div class="row session-header" id="sessionHeader">
         <h1 id="sessionTitle"></h1>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
@@ -613,13 +633,6 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
       <input id="typeInput" class="hidden-input" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="打字输入框">
       <div id="liveCurveWrap"><canvas id="liveCurve" aria-hidden="true"></canvas><span id="liveCurveLabel">实时 WPM</span></div>
       <div id="progressBar"><div id="progressFill"></div></div>
-      <div id="focusCapsule" aria-hidden="true">
-        <span><b id="fcWpm">0</b>WPM</span>
-        <span><b id="fcAcc">100%</b>准确率</span>
-        <span><b id="fcTime">--:--</b><span id="fcTimeLabel">剩余</span></span>
-        <span class="fc-err"><b id="fcErr">0</b>错误</span>
-      </div>
-      <button type="button" id="focusExit" onclick="focusStepDown()" title="退出专注（Esc）" aria-label="退出专注模式">✕ 退出专注</button>
     </div>
 
     <div class="card" id="keyboard">
@@ -688,6 +701,16 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
 </div>
 </main>
 
+<!-- 专注模式浮动件：挂在 body（main 之外）——卡片 FLIP transform 不会形成包含块使其错位，
+     对话框打开时 appMain.inert 也不会连带禁用退出钮 -->
+<div id="focusCapsule" aria-hidden="true">
+  <span><b id="fcWpm">0</b>WPM</span>
+  <span><b id="fcAcc">100%</b>准确率</span>
+  <span><b id="fcTime">--:--</b><span id="fcTimeLabel">剩余</span></span>
+  <span class="fc-err"><b id="fcErr">0</b>错误</span>
+</div>
+<button type="button" id="focusExit" onclick="focusStepDown()" title="退出专注（Esc）" aria-label="退出专注模式">✕ 退出专注</button>
+
 <!-- 重置密码弹窗 -->
 <div id="pwModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pwTitle">
   <div class="auth-card">
@@ -737,10 +760,16 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
   </div>
 </div>
 
-<!-- 外观设置：主题色 / 深浅模式（桌面弹窗，移动端底部抽屉） -->
-<div id="appearanceModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle">
-  <div class="appearance-panel">
-    <div class="appearance-head"><h2 id="appearanceTitle">外观设置</h2><button type="button" class="btn ghost appearance-close" onclick="closeAppearance()">关闭</button></div>
+<!-- 统一设置面板：外观（主题色/深浅/动效/音效）+ 账号（信息/昵称/密码/退出）
+     桌面居中弹窗，移动端底部抽屉；两段用分段控件切换，同一时刻只显示一段 -->
+<div id="settingsModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="appearance-panel settings-panel">
+    <div class="appearance-head"><h2 id="settingsTitle">设置</h2><button type="button" class="btn ghost appearance-close" onclick="closeSettings()">关闭</button></div>
+    <div class="settings-tabs" role="tablist" aria-label="设置分类">
+      <button type="button" id="settingsTabAppearance" role="tab" aria-selected="true" aria-controls="settingsPaneAppearance" onclick="settingsSection('appearance')">外观</button>
+      <button type="button" id="settingsTabAccount" role="tab" aria-selected="false" aria-controls="settingsPaneAccount" onclick="settingsSection('account')">账号</button>
+    </div>
+    <div id="settingsPaneAppearance" role="tabpanel" aria-labelledby="settingsTabAppearance">
     <div class="appearance-section">
       <div class="appearance-label"><span>主题色</span><span id="accentName">松林绿</span></div>
       <div class="accent-swatches" id="accentSwatches" role="group" aria-label="主题色色板"></div>
@@ -775,13 +804,8 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
       <p class="motion-note">打字时播放轻柔键音，错键低音提示、完成上行音。音量克制，不影响他人。</p>
     </div>
     <p class="appearance-note">登录后外观偏好随账号同步，换设备自动恢复；未登录时仅保存在本机浏览器。</p>
-  </div>
-</div>
-
-<!-- 账号管理：账号信息 / 修改昵称 / 修改密码（桌面弹窗，移动端底部抽屉） -->
-<div id="accountModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
-  <div class="appearance-panel account-panel">
-    <div class="appearance-head"><h2 id="accountTitle">账号管理</h2><button type="button" class="btn ghost appearance-close" onclick="closeAccount()">关闭</button></div>
+    </div>
+    <div id="settingsPaneAccount" class="hidden" role="tabpanel" aria-labelledby="settingsTabAccount">
     <div class="appearance-section">
       <div class="account-info">
         <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
@@ -816,6 +840,12 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
         <p class="account-msg" id="accountPwMsg" role="status"></p>
       </div>
       <p class="account-note">修改成功后本机保持登录，其他设备需用新密码重新登录。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>登录状态</span></div>
+      <button type="button" id="settingsLogoutBtn" class="btn ghost settings-logout" onclick="logout()">退出登录</button>
+      <p class="account-note">退出后本机练习现场清空，历史成绩仍保存在账号中，重新登录即可恢复。</p>
+    </div>
     </div>
   </div>
 </div>
@@ -2487,8 +2517,13 @@ function beginSession(mode, title, text, material, level, tokens){
   document.getElementById('stTime').textContent = S.duration ? fmtTime(S.duration) : '不限';
   renderText();
   liveCurveReset();
-  focusSet(1); // 两段式专注：选定项目先进入半专注（内部已处理焦点）
-  window.scrollTo({top:0, behavior:'smooth'});
+  // 先归零滚动再起镜：镜头终点按 scrollY=0 量测，避免起镜后再滚动导致终点错位。
+  // 不用 smooth scroll——它会与逐帧镜头争抢主线程，且卡片此时已是 fixed 承载。
+  window.scrollTo(0, 0);
+  focusSet(1); // 两段式专注：选定项目先进入半专注
+  // 预热排在起镜「之后」：0→1 这一镜只需 1 档目标，其余档位在后续空闲帧逐帧补齐。
+  // 若排在起镜前，量测会与镜头首帧撞在同一个 rAF，形成长任务把首帧顶掉。
+  focusPrewarm();
 }
 
 function resetSession(silent){
@@ -2884,7 +2919,7 @@ async function submitAuth(){
 async function logout(){
   try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
   currentUser = null;
-  document.getElementById('accountModal').classList.add('hidden');
+  document.getElementById('settingsModal').classList.add('hidden');
   document.getElementById('shareModal').classList.add('hidden');
   resultSequence++;
   document.getElementById('modal').classList.add('hidden');
@@ -2914,8 +2949,13 @@ async function logout(){
 }
 function updateAuthUI(){
   document.getElementById('userDisplay').textContent = currentUser ? (currentUser.display_name + '（' + currentUser.username + '）') : '未登录';
-  document.getElementById('userRole').textContent = currentUser ? roleLabel(currentUser.role) : '请先登录后练习';
-  document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
+  // 退出登录移入设置面板的账号段；未登录时该段整体隐藏
+  const lo = document.getElementById('settingsLogoutBtn');
+  if(lo) lo.classList.toggle('hidden', !currentUser);
+  const acctTab = document.getElementById('settingsTabAccount');
+  if(acctTab) acctTab.classList.toggle('hidden', !currentUser);
+  // 未登录强制回外观段。settingsPane 是后文 let 声明，早期调用可能落在暂时性死区，故兜底。
+  if(!currentUser){ try{ settingsSection('appearance'); }catch(e){} }
   const isTeacher = !!(currentUser && currentUser.role === 'teacher');
   document.getElementById('tab-class').classList.toggle('hidden', !isTeacher);
   document.getElementById('tab-admin').classList.toggle('hidden', !isTeacher);
@@ -3250,19 +3290,422 @@ function syncSoundUI(){
     if(b) b.setAttribute('aria-pressed', StudioSound.style === s ? 'true' : 'false');
   });
 }
-/* ---------- 批A：两段式专注模式 ---------- */
-let focusLevel = 0; // 0 正常 / 1 半专注 / 2 全屏
-function focusSet(level){
-  focusLevel = level;
-  const root = document.documentElement;
+/* ---------- 专注模式：一镜到底（focusDolly） ----------
+   0 正常 / 1 半专注 / 2 全屏，三者共用一条连续时间线。
+   卡片外框 left/top/width/height 全程连续插值（不用 scale，文字不畸变、不糊），
+   落定帧几何与目标静态布局完全重合 —— 没有第二次起跳，也没有落定突跳。
+   页头、页标题、侧栏、光斑、键盘、胶囊全部挂在同一条时间线上。
+
+   性能关键：外框长大时，把 #typeArea 的「内容宽度」钉死在起点值（focusAreaPinW）。
+   ~500 个字符的换行只取决于内容宽度，钉死后外框逐帧变化不触发文本重排，
+   于是 width/height 插值也能跑满帧；文本排版在落定帧一次性交还 CSS。
+   中断安全：起点取「当前已写入的视觉值」，快速连按 Esc 从现状续接。 */
+let focusLevel = 0;
+let focusDollyRaf = 0;
+let focusDollyDefer = 0;    // 0→1 延后一帧起镜的句柄（让建 DOM 的首布局先完成）
+let focusDollyGen = 0;      // 镜头代号：每次起镜自增，过期 step 凭此自动退出（中断/连按 Esc 防竞态）
+let focusDollyNow = null;   // 飞行中最近一帧写入的镜头状态
+const FOCUS_DOLLY_MS = 520;
+const FOCUS_DOLLY_SHORT = 400;
+// easeInOutCubic：匀加速起、匀减速落，单段缓动保证整程无拐点
+const FOCUS_EASE = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+const focusEl = id => document.getElementById(id);
+const focusCard = () => document.querySelector('#typingSection > .typing-card');
+const FOCUS_AUX_IDS = ['panelKicker','sessionHeader','materialTitle','liveHint','liveStats'];
+const FOCUS_AUX_DISPLAY = {liveStats:'grid', sessionHeader:'flex'};
+function focusNum(el, prop, fallback){
+  const v = parseFloat(getComputedStyle(el)[prop]);
+  return isFinite(v) ? v : fallback;
+}
+function focusAuxNatural(id, width){
+  // display:none 的元素 rect 为 0，用离屏探针量自然高度（探针不入文档流，不影响画面）
+  const el = focusEl(id);
+  if(!el) return {h:0, mt:0, mb:0};
+  const probe = el.cloneNode(true);
+  probe.removeAttribute('id');
+  probe.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+  probe.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;' +
+    'display:' + (FOCUS_AUX_DISPLAY[id] || 'block') + ';width:' + Math.max(1, width) + 'px;' +
+    'height:auto;max-height:none;opacity:1;overflow:visible;margin-left:0;margin-right:0';
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const out = {h: probe.getBoundingClientRect().height, mt: parseFloat(cs.marginTop)||0, mb: parseFloat(cs.marginBottom)||0};
+  probe.remove();
+  return out;
+}
+/* 采集镜头状态：卡片视口几何 + 内边距/圆角/描边 + 辅助行高度透明度 + 文本区与曲线尺寸。
+   natural=true 时把隐藏辅助行的自然高度补回（用于收拢/展开动画的另一端）。 */
+function focusSnapshot(natural){
+  const card = focusCard();
+  const r = card.getBoundingClientRect();
+  const area = focusEl('typeArea'), curve = focusEl('liveCurveWrap'), prog = focusEl('progressBar');
+  const innerW = Math.max(1, card.clientWidth - focusNum(card,'paddingLeft',0) - focusNum(card,'paddingRight',0));
+  const aux = FOCUS_AUX_IDS.map(id=>{
+    const el = focusEl(id);
+    if(!el) return {id, h:0, o:0, mt:0, mb:0};
+    const cs = getComputedStyle(el);
+    if(cs.display === 'none'){
+      const nat = natural ? focusAuxNatural(id, innerW) : {h:0, mt:0, mb:0};
+      return {id, h:nat.h, o:0, mt:nat.mt, mb:nat.mb};
+    }
+    return {id, h: el.getBoundingClientRect().height, o: focusNum(el,'opacity',1),
+            mt: focusNum(el,'marginTop',0), mb: focusNum(el,'marginBottom',0)};
+  });
+  const acs = getComputedStyle(area);
+  const aPadL = parseFloat(acs.paddingLeft)||0, aPadR = parseFloat(acs.paddingRight)||0;
+  const aBdL = parseFloat(acs.borderLeftWidth)||0, aBdR = parseFloat(acs.borderRightWidth)||0;
+  // 文本区内容盒宽度：飞行中钉死此值，外框变化就不会让 ~500 字符重新换行
+  const areaPinW = Math.max(1, area.getBoundingClientRect().width - aPadL - aPadR - aBdL - aBdR);
+  return {
+    left:r.left, top:r.top, width:r.width, height:r.height,
+    padT:focusNum(card,'paddingTop',0), padR:focusNum(card,'paddingRight',0),
+    padB:focusNum(card,'paddingBottom',0), padL:focusNum(card,'paddingLeft',0),
+    radius:focusNum(card,'borderTopLeftRadius',0), border:focusNum(card,'borderTopWidth',0),
+    areaPadT:focusNum(area,'paddingTop',0), areaPadR:focusNum(area,'paddingRight',0),
+    areaPadB:focusNum(area,'paddingBottom',0), areaPadL:focusNum(area,'paddingLeft',0),
+    areaPinW,
+    areaMax: parseFloat(getComputedStyle(area).maxHeight) || 0,
+    curveH: focusNum(curve,'height',0), curveMt:focusNum(curve,'marginTop',0),
+    progMt: focusNum(prog,'marginTop',0),
+    aux
+  };
+}
+/* 逐帧内联值的临时摘除/还原（量测目标布局时用，同一帧内完成，用户不可见） */
+function focusInlineEls(){
+  return [focusCard()].concat(FOCUS_AUX_IDS.map(focusEl),
+    [focusEl('typeArea'), focusEl('liveCurveWrap'), focusEl('progressBar')]).filter(Boolean);
+}
+function focusStripInline(){
+  const card = focusCard();
+  const saved = focusInlineEls().map(el=>[el, el.getAttribute('style')]);
+  focusInlineEls().forEach(el=>el.removeAttribute('style'));
+  if(card) card.classList.remove('focus-dolly');
+  return saved;
+}
+function focusRestoreInline(saved){
+  // 空串等价于无样式：还原成 removeAttribute，避免留下 style="" 残迹（落定清理断言要求 null）
+  saved.forEach(([el, style])=>{ if(style) el.setAttribute('style', style); else el.removeAttribute('style'); });
+  focusNormalizeEmpty();
+}
+/* 量测会临时摘除/还原内联样式，个别浏览器在 removeProperty 后留下 style="" 空属性。
+   空属性与无样式等价但 getAttribute 返回 "" 而非 null，统一抹掉，保证落定后彻底干净。 */
+function focusNormalizeEmpty(){
+  focusInlineEls().forEach(el=>{ if(el.getAttribute('style') === '') el.removeAttribute('style'); });
+}
+/* 卡片在文档流中的可用宽度（目标级别 0/1 用） */
+function focusFlowWidth(level){
+  const wrap = document.querySelector('.wrap');
+  const wcs = getComputedStyle(wrap);
+  const railPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-width')) || 0;
+  const mobile = matchMedia('(max-width:930px)').matches;
+  const mainW = document.documentElement.clientWidth - (mobile || level > 0 ? 0 : railPx);
+  const wrapW = Math.min(mainW, 1310);
+  return Math.max(200, wrapW - (parseFloat(wcs.paddingLeft)||0) - (parseFloat(wcs.paddingRight)||0));
+}
+/* 目标量测缓存：量一次目标静态布局要强制同步重排（含离屏探针），在按键任务里做会成长任务。
+   同一视口+同一文本下目标布局不变，缓存起来供后续镜头复用；视口尺寸或文本长度变化时失效。 */
+let focusMeasureCache = {};
+let focusMeasureCacheKey = '';
+function focusMeasureCacheInvalidate(){ focusMeasureCache = {}; focusMeasureCacheKey = ''; }
+function focusMeasureCacheSig(){
+  return window.innerWidth + 'x' + window.innerHeight + '|' + (S.text ? S.text.length : 0) + '|' + (S.level || '');
+}
+/* 量目标级别的静态布局作为镜头终点，量完立刻还原当前视觉。
+   飞行只插值「外框几何 + 辅助行透明度」，内部尺寸冻结在起点、落定交还 CSS，
+   故这里一律 natural=false：不为隐藏辅助行克隆离屏探针（探针是 0→1 起镜长任务的主因）。 */
+function focusMeasureTarget(level){
+  const sig = focusMeasureCacheSig();
+  if(sig !== focusMeasureCacheKey){ focusMeasureCache = {}; focusMeasureCacheKey = sig; }
+  if(focusMeasureCache['t' + level]) return JSON.parse(JSON.stringify(focusMeasureCache['t' + level]));
+  const root = document.documentElement, card = focusCard();
+  const keepHalf = root.classList.contains('focus-half');
+  const keepFull = root.classList.contains('focus-full');
+  const keepDolly = root.classList.contains('focus-dolly');
+  const saved = focusStripInline();
+  root.classList.remove('focus-dolly');
   root.classList.toggle('focus-half', level === 1);
   root.classList.toggle('focus-full', level === 2);
+  let shot;
+  if(level === 2){
+    shot = focusSnapshot(false);
+    shot.aux.forEach(a=>{ a.h = 0; a.o = 0; a.mt = 0; a.mb = 0; });
+  } else {
+    // 顺带在同一改类窗口内量出「流内位置」并写入 r{level} 缓存：
+    // 否则 focusFlowRect 会再改一次类、再触发一次强制布局（中断场景实测两次共 ~30ms）。
+    const flowR = card.getBoundingClientRect();
+    focusMeasureCache['r' + level] = {left: flowR.left, top: flowR.top + window.scrollY};
+    // 目标态卡片在流内：临时 fixed 且隐藏，只量宽高与内部尺寸，不扰动页面其余布局
+    card.style.position = 'fixed';
+    card.style.left = '0px';
+    card.style.top = '0px';
+    card.style.visibility = 'hidden';
+    card.style.width = focusFlowWidth(level) + 'px';
+    shot = focusSnapshot(false);
+    if(level === 1){
+      // 半专注：统计格收起（胶囊已接管），其余辅助行保留
+      shot.aux.forEach(a=>{ if(a.id === 'liveStats'){ a.h = 0; a.o = 0; a.mt = 0; a.mb = 0; } });
+    }
+    card.style.visibility = '';
+  }
+  root.classList.toggle('focus-half', keepHalf);
+  root.classList.toggle('focus-full', keepFull);
+  root.classList.toggle('focus-dolly', keepDolly);
+  focusRestoreInline(saved);
+  if(keepDolly && card) card.classList.add('focus-dolly');
+  focusMeasureCache['t' + level] = shot;
+  return JSON.parse(JSON.stringify(shot));
+}
+/* 预热目标量测缓存：把 0/1/2 三档目标布局量好缓存，起镜时直接命中。
+   单次量测要强制同步重排（实测 30~70ms），故「每帧只量一项」摊到多个空闲帧。
+   铁律：飞行期间一律不预热 —— 起镜时 focusDolly 会调 focusPrewarmCancel() 撤销在途预热，
+   落定后再 focusPrewarm() 重排。否则预热帧与镜头帧相撞，实测把 0→1 拖到 45fps。 */
+let focusPrewarmRaf = 0;
+function focusPrewarmCancel(){
+  if(focusPrewarmRaf){ cancelAnimationFrame(focusPrewarmRaf); focusPrewarmRaf = 0; }
+}
+function focusPrewarm(){
+  focusPrewarmCancel();
+  // 0/1 档的流内位置已在 focusMeasureTarget 内顺带量好，无需单独的 flowRect 任务
+  const jobs = [()=>focusMeasureTarget(0), ()=>focusMeasureTarget(1), ()=>focusMeasureTarget(2)];
+  let i = 0;
+  const runOne = ()=>{
+    focusPrewarmRaf = 0;
+    const section = focusEl('typingSection');
+    if(!section || section.classList.contains('hidden') || !S.text) return;
+    if(focusDollyNow || focusDollyDefer) return;   // 飞行中：直接退出，落定后会重排
+    try{ jobs[i](); }catch(e){}
+    i++;
+    if(i < jobs.length) focusPrewarmRaf = requestAnimationFrame(runOne);
+  };
+  focusPrewarmRaf = requestAnimationFrame(runOne);
+}
+/* 目标流内态的卡片视口位置：临时把卡片放回文档流读一次 rect（同帧还原） */
+function focusFlowRect(level){
+  const sig = focusMeasureCacheSig();
+  if(sig !== focusMeasureCacheKey){ focusMeasureCache = {}; focusMeasureCacheKey = sig; }
+  if(focusMeasureCache['r' + level]) return Object.assign({}, focusMeasureCache['r' + level]);
+  const root = document.documentElement, card = focusCard();
+  const keepHalf = root.classList.contains('focus-half');
+  const keepFull = root.classList.contains('focus-full');
+  const keepDolly = root.classList.contains('focus-dolly');
+  const saved = focusStripInline();
+  root.classList.remove('focus-dolly');
+  root.classList.toggle('focus-half', level === 1);
+  root.classList.toggle('focus-full', level === 2);
+  // liveStats 的隐藏由 focus-half 类的 CSS（display:none）负责，无需再写内联——
+  // 写后再 removeProperty 会留下 style="" 残迹，故这里只读 rect，不碰 liveStats 样式。
+  const r = card.getBoundingClientRect();
+  const out = {left:r.left, top:r.top + window.scrollY};
+  root.classList.toggle('focus-half', keepHalf);
+  root.classList.toggle('focus-full', keepFull);
+  root.classList.toggle('focus-dolly', keepDolly);
+  focusRestoreInline(saved);
+  if(keepDolly && card) card.classList.add('focus-dolly');
+  focusMeasureCache['r' + level] = out;
+  return Object.assign({}, out);
+}
+/* 飞行中把文本区内容宽度钉死：外框逐帧长大时文本不重新换行（无逐帧重排）。
+   pin 值为「内容盒宽度」，配 box-sizing:content-box 使 padding 变化也不影响换行。 */
+function focusAreaPin(area, pinW){
+  if(pinW > 0){
+    area.style.boxSizing = 'content-box';
+    area.style.width = pinW + 'px';
+    area.style.flex = '0 0 auto';
+  }
+}
+function focusDollyApply(s){
+  const card = focusCard();
+  card.style.left = s.left + 'px';
+  card.style.top = s.top + 'px';
+  card.style.width = s.width + 'px';
+  card.style.height = s.height + 'px';
+  card.style.padding = s.padT + 'px ' + s.padR + 'px ' + s.padB + 'px ' + s.padL + 'px';
+  card.style.borderRadius = s.radius + 'px';
+  card.style.borderWidth = s.border + 'px';
+  s.aux.forEach(a=>{
+    const el = focusEl(a.id);
+    if(!el) return;
+    if(a.h <= .3 && a.o <= .01){
+      el.style.display = 'none';
+      el.style.height = '0px'; el.style.marginTop = '0px'; el.style.marginBottom = '0px'; el.style.opacity = '0';
+      return;
+    }
+    el.style.display = FOCUS_AUX_DISPLAY[a.id] || 'block';
+    el.style.height = a.h + 'px';
+    el.style.marginTop = a.mt + 'px';
+    el.style.marginBottom = a.mb + 'px';
+    el.style.opacity = a.o;
+    el.style.overflow = 'hidden';
+    el.style.pointerEvents = a.o < .5 ? 'none' : '';
+  });
+  const area = focusEl('typeArea');
+  area.style.padding = s.areaPadT + 'px ' + s.areaPadR + 'px ' + s.areaPadB + 'px ' + s.areaPadL + 'px';
+  area.style.maxHeight = s.areaMax > 0 ? s.areaMax + 'px' : 'none';
+  area.style.minHeight = '0';
+  focusAreaPin(area, s.areaPinW);
+  const curve = focusEl('liveCurveWrap');
+  curve.style.height = s.curveH + 'px';
+  curve.style.marginTop = s.curveMt + 'px';
+  focusEl('progressBar').style.marginTop = s.progMt + 'px';
+}
+function focusChromeEls(){
+  return {
+    hdr: document.querySelector('.studio-header'),
+    heading: document.querySelector('.page:not(.hidden) .page-heading') || document.querySelector('.page-heading'),
+    kb: focusEl('keyboard'),
+    amb: Array.from(document.querySelectorAll('.ambient-bg i')),
+    cap: focusEl('focusCapsule'),
+    ex: focusEl('focusExit'),
+    footer: document.querySelector('.studio-footer')
+  };
+}
+function focusDollyClear(){
+  if(focusDollyRaf){ cancelAnimationFrame(focusDollyRaf); focusDollyRaf = 0; }
+  if(focusDollyDefer){ cancelAnimationFrame(focusDollyDefer); focusDollyDefer = 0; }
+  focusDollyGen++;   // 作废任何在途镜头（含尚未起飞的延后镜头）
+  focusDollyNow = null;
+  const root = document.documentElement;
+  root.classList.remove('focus-dolly');
+  const card = focusCard();
+  if(card) card.classList.remove('focus-dolly');
+  focusInlineEls().forEach(el=>el.removeAttribute('style'));
+  focusNormalizeEmpty();
+  const c = focusChromeEls();
+  // 落定防「二次淡入」：chrome 带 CSS 过渡（opacity .36s 等）。飞行末帧 chrome 已落在目标透明度，
+  // 与静态 CSS 值一致，清内联不会触发过渡；但为防个别浏览器从末值再过渡一遍，先以 transition:none
+  // 清值（同帧提交静态终值），下一帧再交还 CSS 过渡。不做强制重排，避免落定帧长任务。
+  const chrome = [c.hdr, c.heading, c.footer, c.kb].concat(c.amb, [c.cap, c.ex]).filter(Boolean);
+  chrome.forEach(el=>{ el.style.transition = 'none'; });
+  [c.hdr, c.heading, c.footer].forEach(el=>{ if(el){ el.style.removeProperty('opacity'); el.style.removeProperty('visibility'); } });
+  if(c.kb){ c.kb.style.removeProperty('opacity'); c.kb.style.removeProperty('display'); }
+  c.amb.forEach(el=>el.style.removeProperty('opacity'));
+  [c.cap, c.ex].forEach(el=>{ if(el) el.style.removeProperty('opacity'); });
+  requestAnimationFrame(()=>{ chrome.forEach(el=>{ el.style.removeProperty('transition'); if(el.getAttribute('style') === '') el.removeAttribute('style'); }); });
+}
+/* 一次连续镜头：from（当前视觉）→ to（目标静态布局），单一时钟单一缓动。 */
+function focusDolly(level, duration){
+  const root = document.documentElement, card = focusCard();
+  // 中断安全：先停掉上一条镜头的时钟再自增代号——过期 step 凭代号自动退出，
+  // 不会与新镜头同时写值，也不会在落定时用旧目标覆盖新状态（连按 Esc 防竞态）。
+  if(focusDollyRaf){ cancelAnimationFrame(focusDollyRaf); focusDollyRaf = 0; }
+  if(focusDollyDefer){ cancelAnimationFrame(focusDollyDefer); focusDollyDefer = 0; }
+  focusPrewarmCancel();   // 飞行期间绝不预热：撤销在途量测，落定后重排
+  const gen = ++focusDollyGen;
+  const flying = !!focusDollyNow;
+  // 起点 natural=false：隐藏辅助行的高度沿用 0（飞行中高度冻结、只做淡出），
+  // 不必为它们克隆离屏探针——那是 0→1 起镜长任务的主因。
+  const from = flying ? focusDollyNow : focusSnapshot(false);
+  // chrome 起点必须在切换目标类「之前」读：此刻 DOM 仍是上一档的静态类，
+  // 计算值即真实视觉（0→1 时页头/键盘=1，1→2 时已=0）。切类后再读会拿到目标值导致瞬隐而非淡出。
+  const c = focusChromeEls();
+  const opNow = el => el ? (getComputedStyle(el).display === 'none' ? 0 : focusNum(el,'opacity',1)) : 0;
+  const chromeFrom = {hdr:opNow(c.hdr), heading:opNow(c.heading), kb:opNow(c.kb),
+                      amb:c.amb.length ? focusNum(c.amb[0],'opacity',1) : 1, cap:opNow(c.cap), footer:opNow(c.footer)};
+  const to = focusMeasureTarget(level);
+  if(level < 2){
+    // 流内终点：卡片真实文档位置（换算成视口坐标，镜头期间用 fixed 承载）
+    const rect = focusFlowRect(level);
+    to.left = rect.left;
+    to.top = rect.top - window.scrollY;
+    // 飞行只插值辅助行「透明度」，高度冻结在起点、落定交还 CSS，故此处只定终点透明度。
+    // 半专注下 liveStats 收起（胶囊已接管），其余辅助行在 0/1 档均可见。
+    to.aux.forEach(a=>{ a.o = (level === 1 && a.id === 'liveStats') ? 0 : 1; });
+  }
+  root.classList.add('focus-dolly');
+  card.classList.add('focus-dolly');
+  root.classList.toggle('focus-half', level === 1);
+  root.classList.toggle('focus-full', level === 2);
+  const chromeTo = {hdr: level === 0 ? 1 : 0, heading: level === 0 ? 1 : 0, kb: level === 0 ? 1 : 0,
+                    amb: level === 2 ? .7 : 1, cap: level > 0 ? 1 : 0, footer: level === 0 ? 1 : 0};
+  const lerp = (a,b,t)=>a + (b-a)*t;
+  // chrome 逐帧写值（页头/页标题/键盘/页脚/光斑/胶囊同拍）
+  const applyChrome = t => {
+    const co = lerp(chromeFrom.hdr, chromeTo.hdr, t);
+    [c.hdr, c.heading].forEach(el=>{ if(el){ el.style.opacity = co; el.style.visibility = co < .01 ? 'hidden' : 'visible'; } });
+    if(c.kb){
+      const ko = lerp(chromeFrom.kb, chromeTo.kb, t);
+      c.kb.style.display = ko < .01 ? 'none' : '';
+      c.kb.style.opacity = ko;
+    }
+    if(c.footer){
+      const fo = lerp(chromeFrom.footer, chromeTo.footer, t);
+      c.footer.style.opacity = fo;
+      c.footer.style.visibility = fo < .01 ? 'hidden' : 'visible';
+    }
+    const ao = lerp(chromeFrom.amb, chromeTo.amb, t);
+    c.amb.forEach(el=>{ el.style.opacity = ao; });
+    const ca = lerp(chromeFrom.cap, chromeTo.cap, t);
+    [c.cap, c.ex].forEach(el=>{ if(el) el.style.opacity = ca; });
+  };
+  const dur = Math.max(140, duration || FOCUS_DOLLY_MS);
+  let t0 = 0;   // 首帧时间戳锚定：rAF 的 now 可能早于按键任务里的 performance.now()，
+                // 若以按键时刻为 t0，首帧 raw 会为负 → 缓动外插 → 宽度反向回弹。以首帧 now 为 t0 杜绝。
+  // 首帧立即落到起点（卡片几何 + chrome 透明度同步写），避免第一帧出现目标布局闪现：
+  // 目标类已切换（如 1→0 移除 focus-half 会让键盘变可见），必须同帧把 chrome 钉回起点值。
+  focusDollyNow = from;
+  focusDollyApply(from);
+  applyChrome(0);
+  const step = now => {
+    if(gen !== focusDollyGen) return;   // 已被新镜头取代：立即退出，不再写值/落定
+    if(!t0) t0 = now;
+    const raw = Math.max(0, Math.min(1, (now - t0) / dur));
+    const t = FOCUS_EASE(raw);
+    // 外框 left/top/width/height 全程连续插值 → 落定帧与目标静态几何重合，无突跳。
+    // 性能红线：文本区内容宽度钉死在起点（areaPinW），~500 字符不随外框变化重新换行，
+    // 故 width/height 插值不触发逐帧文本重排；内边距/辅助行高度/曲线高度冻结在起点值，
+    // 只做淡出，目标内部布局在落定帧一次性交还 CSS（单次重排，不在逐帧路径上）。
+    const s = {
+      left:lerp(from.left,to.left,t), top:lerp(from.top,to.top,t),
+      width:lerp(from.width,to.width,t), height:lerp(from.height,to.height,t),
+      padT:from.padT, padR:from.padR, padB:from.padB, padL:from.padL,
+      radius:lerp(from.radius,to.radius,t), border:from.border,
+      areaPadT:from.areaPadT, areaPadR:from.areaPadR, areaPadB:from.areaPadB, areaPadL:from.areaPadL,
+      areaPinW:from.areaPinW,
+      areaMax:from.areaMax,
+      curveH:from.curveH, curveMt:from.curveMt, progMt:from.progMt,
+      aux: from.aux.map((a,i)=>({id:a.id, h:a.h, o:lerp(a.o,to.aux[i].o,t), mt:a.mt, mb:a.mb}))
+    };
+    focusDollyApply(s);
+    focusDollyNow = s;
+    applyChrome(t);
+    if(raw < 1){ focusDollyRaf = requestAnimationFrame(step); return; }
+    // 落定：交还 CSS 静态布局，清掉所有逐帧内联值（同一帧内完成，无闪跳）
+    if(gen !== focusDollyGen) return;   // 双保险：落定前再验代号
+    focusDollyRaf = 0;
+    focusDollyNow = null;
+    focusDollyClear();
+    root.classList.toggle('focus-half', level === 1);
+    root.classList.toggle('focus-full', level === 2);
+    if(level > 0) syncFocusCapsule();
+    try{ liveCurveDraw(performance.now()); }catch(e){}
+    focusPrewarm();   // 落定后补齐其余档位缓存（飞行中被跳过的那些）
+  };
+  focusDollyRaf = requestAnimationFrame(step);
+}
+function focusSet(level){
+  if(level === focusLevel){ if(level > 0) syncFocusCapsule(); return; }
+  const root = document.documentElement;
+  const prev = focusLevel;
+  focusLevel = level;
+  const card = focusCard();
+  const section = focusEl('typingSection');
+  const visible = card && section && !section.classList.contains('hidden') && card.getClientRects().length > 0;
+  const animate = window.StudioMotion && StudioMotion.get() === 'full' && !document.hidden && visible;
+  if(animate){
+    // 注：曾试过把 0→1 延后一帧起镜（想让建 DOM 的首布局先完成），实测无稳定收益、
+    // 多次反而更差（延后帧与预热/首布局的相对时序不可控），故保持同帧起镜。
+    focusDolly(level, (level === 1 && prev === 0) ? FOCUS_DOLLY_SHORT : FOCUS_DOLLY_MS);
+  } else {
+    focusDollyClear();
+    root.classList.toggle('focus-half', level === 1);
+    root.classList.toggle('focus-full', level === 2);
+  }
   if(level > 0) syncFocusCapsule();
   // 焦点保持在打字输入，避免过渡后丢键（移动端聚焦隐藏 input 唤起键盘）
   requestAnimationFrame(()=>{
     try{
       if(matchMedia('(max-width:930px)').matches) focusTypeInput();
-      else document.getElementById('typeArea').focus({preventScroll:true});
+      else focusEl('typeArea').focus({preventScroll:true});
     }catch(e){}
   });
 }
@@ -3496,47 +3939,41 @@ function syncAccentUI(){
   input.value = hex;
   input.setAttribute('aria-label', '自定义主题色，当前 ' + accentLabel(hex));
   document.getElementById('accentName').textContent = accentLabel(hex);
-  const entryName = document.getElementById('accentEntryName');
+  const entryName = document.getElementById('settingsEntryAccent');
   if(entryName) entryName.textContent = accentLabel(hex);
 }
-/* 外观设置二级面板：桌面居中弹窗，移动端底部抽屉 */
-function openAppearance(){
-  document.getElementById('appearanceModal').classList.remove('hidden');
+/* 统一设置面板：外观段 + 账号段，桌面居中弹窗、移动端底部抽屉。
+   section 记忆上次停留的分段，重开时回到原处（账号段未登录时强制回外观）。 */
+let settingsPane = 'appearance';
+function settingsSection(which){
+  const wantAccount = which === 'account' && !!currentUser;
+  settingsPane = wantAccount ? 'account' : 'appearance';
+  const tabs = [['settingsTabAppearance','settingsPaneAppearance','appearance'],
+                ['settingsTabAccount','settingsPaneAccount','account']];
+  tabs.forEach(([tabId, paneId, key])=>{
+    const tab = document.getElementById(tabId), pane = document.getElementById(paneId);
+    const on = key === settingsPane;
+    if(tab){ tab.setAttribute('aria-selected', on ? 'true' : 'false'); tab.tabIndex = on ? 0 : -1; }
+    if(pane) pane.classList.toggle('hidden', !on);
+  });
+  if(settingsPane === 'account') syncAccountUI();
 }
-function closeAppearance(){
-  const wasOpen = !document.getElementById('appearanceModal').classList.contains('hidden');
-  document.getElementById('appearanceModal').classList.add('hidden');
+function openSettings(which){
+  if(which === 'account' && !requireLogin()) return;
+  settingsSection(which || settingsPane);
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettings(){
+  const wasOpen = !document.getElementById('settingsModal').classList.contains('hidden');
+  document.getElementById('settingsModal').classList.add('hidden');
   if(!wasOpen) return;
   const mobile = window.matchMedia('(max-width:930px)').matches;
   if(mobile && !document.getElementById('sidebar').classList.contains('open')) openSidebar();
   // 侧栏 visibility 过渡约 180ms，未结束时元素不可聚焦：立即尝试一次，过渡结束后兜底补焦
   const restore = () => {
-    if(!document.getElementById('appearanceModal').classList.contains('hidden')) return;
-    const entry = document.getElementById('accentEntry');
-    if(entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
-    const menu = document.getElementById('menuToggle');
-    if(menu.getClientRects().length) menu.focus({preventScroll:true});
-  };
-  restore();
-  setTimeout(restore, 220);
-}
-/* 账号管理二级面板：账号信息 / 修改昵称 / 修改密码，交互与外观抽屉同构 */
-function openAccount(){
-  if(!requireLogin()) return;
-  syncAccountUI();
-  document.getElementById('accountModal').classList.remove('hidden');
-}
-function closeAccount(){
-  const wasOpen = !document.getElementById('accountModal').classList.contains('hidden');
-  document.getElementById('accountModal').classList.add('hidden');
-  if(!wasOpen) return;
-  const mobile = window.matchMedia('(max-width:930px)').matches;
-  if(mobile && !document.getElementById('sidebar').classList.contains('open')) openSidebar();
-  // 侧栏 visibility 过渡约 180ms，未结束时元素不可聚焦：立即尝试一次，过渡结束后兜底补焦
-  const restore = () => {
-    if(!document.getElementById('accountModal').classList.contains('hidden')) return;
-    const entry = document.getElementById('accountEntry');
-    if(entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
+    if(!document.getElementById('settingsModal').classList.contains('hidden')) return;
+    const entry = document.getElementById('settingsEntry');
+    if(entry && entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
     const menu = document.getElementById('menuToggle');
     if(menu.getClientRects().length) menu.focus({preventScroll:true});
   };
@@ -3684,7 +4121,7 @@ async function renderHistory(){
   try{
     const res = await fetch('/api/records?scope=mine&limit=60');
     if(account!==currentUser || request!==historyRequest) return;
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     if(!res.ok) throw new Error();
     const data = await res.json();
     if(account!==currentUser || request!==historyRequest) return;
@@ -3803,7 +4240,7 @@ async function renderClass(){
       fetch('/api/summary'),
       fetch('/api/records?scope=class&limit=30')
     ]);
-    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     sum = await res1.json(); rec = await res2.json();
   }catch(e){}
   const st = sum.students || [];
@@ -4334,7 +4771,7 @@ async function loadAdmin(){
   const box = document.getElementById('adminStudents');
   try{
     const res = await fetch('/api/admin/students');
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('accountModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || '加载失败');
     renderAdminStudents(data.students || []);
@@ -4409,6 +4846,7 @@ function exportRecords(){ window.location.href = '/api/admin/export'; }
 
 let chartResizeFrame = 0;
 window.addEventListener('resize', ()=>{
+  focusMeasureCacheInvalidate();   // 视口变化 → 目标布局量测缓存失效
   if(chartResizeFrame || document.getElementById('page-history').classList.contains('hidden')) return;
   chartResizeFrame = requestAnimationFrame(()=>{
     chartResizeFrame = 0;
@@ -4420,30 +4858,36 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
 });
 // Keep keyboard focus on the topmost visible dialog.
 (function initStudioDialogs(){
-  const dialogs = ['pwModal','authModal','modal','appearanceModal','accountModal','shareModal'].map(id=>document.getElementById(id));
-  const getDialog = () => dialogs.find(el=>!el.classList.contains('hidden'));
+  const dialogs = ['pwModal','authModal','modal','settingsModal','shareModal'].map(id=>document.getElementById(id));
+  // 取「最上层」可见对话框：按计算 z-index 降序，而非数组顺序。
+  // 分享卡（z-index 106）叠在结果弹窗（100）之上，若按数组顺序取会误关底层弹窗。
+  const getDialog = () => dialogs
+    .filter(el=>!el.classList.contains('hidden'))
+    .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0];
   const focusables = dialog => Array.from(dialog.querySelectorAll('button:not([disabled]),input:not([disabled])')).filter(el=>el.getClientRects().length);
   let previous = null;
   const update = () => {
     const active = getDialog();
     document.getElementById('appMain').inert = !!active;
     document.getElementById('sidebar').inert = !!active;
+    const fExit = document.getElementById('focusExit');
+    if(fExit) fExit.inert = !!active;
     if(active && active!==previous){
-      const target = active.id==='appearanceModal'
-        ? (active.querySelector('.accent-swatch[aria-pressed="true"]') || focusables(active)[0])
-        : active.id==='accountModal'
-        ? (document.getElementById('accountDisplayName') || focusables(active)[0])
+      // 设置面板：焦点落在当前分段的第一个可操作元素（外观→选中色板，账号→昵称输入）
+      const target = active.id==='settingsModal'
+        ? (settingsPane==='account'
+            ? (document.getElementById('accountDisplayName') || focusables(active)[0])
+            : (active.querySelector('.accent-swatch[aria-pressed="true"]') || focusables(active)[0]))
         : (active.querySelector('input') || focusables(active)[0]);
       if(target) target.focus({preventScroll:true});
     }else if(!active && previous && document.activeElement===document.body){
       if(previous.id==='authModal' && currentUser) focusDailyInput();
-      else if(previous.id==='appearanceModal' || previous.id==='accountModal'){
+      else if(previous.id==='settingsModal'){
         // 侧栏 visibility 过渡未结束时入口尚不可聚焦，过渡完成后兜底补焦
-        const entryId = previous.id==='accountModal' ? 'accountEntry' : 'accentEntry';
         setTimeout(()=>{
           if(getDialog()) return;
-          const entry = document.getElementById(entryId);
-          if(entry.getClientRects().length) entry.focus({preventScroll:true});
+          const entry = document.getElementById('settingsEntry');
+          if(entry && entry.getClientRects().length) entry.focus({preventScroll:true});
           else focusStudioNavigation();
         }, 220);
       }
@@ -4453,19 +4897,15 @@ document.getElementById('ignoreCaseToggle').addEventListener('click', e=>{
   };
   const observer = new MutationObserver(update);
   dialogs.forEach(el=>observer.observe(el,{attributes:true,attributeFilter:['class']}));
-  document.getElementById('appearanceModal').addEventListener('click', e=>{
-    if(e.target.id==='appearanceModal') closeAppearance();
-  });
-  document.getElementById('accountModal').addEventListener('click', e=>{
-    if(e.target.id==='accountModal') closeAccount();
+  document.getElementById('settingsModal').addEventListener('click', e=>{
+    if(e.target.id==='settingsModal') closeSettings();
   });
   document.addEventListener('keydown', e=>{
     const active = getDialog();
     if(e.key==='Escape'){
       if(active && active.id==='pwModal') closePwModal();
       else if(active && active.id==='modal') closeModal();
-      else if(active && active.id==='appearanceModal') closeAppearance();
-      else if(active && active.id==='accountModal') closeAccount();
+      else if(active && active.id==='settingsModal') closeSettings();
       else if(active && active.id==='shareModal') closeShareCard();
       else if(!active && focusLevel > 0 && !(S.text && !S.finished)) focusStepDown(); // 打字会话内的 Esc 已由 typeKeydown 处理
       else if(!active && document.getElementById('sidebar').classList.contains('open')) closeSidebar(true);
