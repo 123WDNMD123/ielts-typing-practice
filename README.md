@@ -2,11 +2,11 @@
 
 面向雅思备考与课堂打字教学的**零依赖** Web 应用：用真实雅思语料练指法，实时统计 WPM 与准确率，成绩按账号归档，教师可查看全班进度并导出记录。
 
-后端只用 Python 标准库（`http.server` + `sqlite3`），前端是单文件 HTML（内联 CSS/JS，无构建步骤、无 CDN、无第三方运行时依赖）。一台装好 Python 3 的机器即可跑起来。
+后端只用 Python 标准库（`http.server` + `sqlite3`），前端自 v2.0 起拆为**六个静态文件**（结构 / 令牌 / 样式 / 语料 / 动画引擎 / 业务逻辑），仍是原生 HTML/CSS/JS，无 CDN、无第三方运行时依赖；开发直接改源码，发布用附带脚本剥离 JS 注释（可选步骤，仅为压体积）。一台装好 Python 3 的机器即可跑起来。
 
 - **在线体验**：<http://47.120.61.237:8000/>
 - **技术栈**：Python 3 标准库 · SQLite · 原生 HTML/CSS/JS（Web Animations API / Canvas / WebAudio）
-- **当前发布版本**：[**v1.8**](https://github.com/123WDNMD123/ielts-typing-practice/releases/latest) · [全部版本](https://github.com/123WDNMD123/ielts-typing-practice/releases)
+- **当前发布版本**：[**v2.0**](https://github.com/123WDNMD123/ielts-typing-practice/releases/latest) · [全部版本](https://github.com/123WDNMD123/ielts-typing-practice/releases)
 
 ---
 
@@ -66,7 +66,8 @@
 ### 打字体验
 
 - **两段式专注模式**：选定项目进入半专注（侧栏滑出、页头淡出），敲下第一键进入全屏；`Esc` 或退出钮逐级降级，切换页面、完成练习或重置时自动退出。
-- **一镜到底的镜头过渡**：三档（正常 / 半专注 / 全屏）之间由单一 rAF 时钟驱动，卡片外框 `left/top/width/height` 全程连续插值，**文本区、辅助行、曲线、进度条与外框同拍伸缩**（宽高每帧由外框推导，组件始终贴合边框内缘），页头、键盘、辅助信息同拍淡入淡出，落定瞬间零几何突跳；不使用整卡 `scale`，文字字号恒定、无拉伸畸变。飞行中再次切换会从当前视觉状态续接，不重新起跳。
+- **一镜到底的镜头过渡**：三档（正常 / 半专注 / 全屏）之间由单一 rAF 时钟驱动，卡片外框 `left/top/width/height` 全程连续插值，**文本区、辅助行、曲线、进度条与外框同拍伸缩**（宽高每帧由外框推导，组件始终贴合边框内缘），页头、键盘、辅助信息同拍淡入淡出，落定瞬间零几何突跳；不使用整卡 `scale`，文字字号恒定、无拉伸畸变。飞行中再次切换会从当前视觉状态续接，不重新起跳。v2.0 起时长与缓动统一取自主引擎（`macro` 档 500ms ＋ 全站同一条贝塞尔曲线），不再是独立常量。
+- **统一动画引擎（v2.0）**：`motion.js` 提供全站唯一时间源——三档时长（micro 180 / base 320 / macro 500ms）× 动效档位换算（full 原值 / lite ×0.5 / off 直切），同一条 `cubic-bezier(0.32, 0.72, 0, 1)` 缓动同时喂给 CSS、WAAPI 与 rAF 逐帧三条通道。Tab 切换、弹窗开合、词卡进出等**内容静态**的转场走 FLIP 飞行克隆层（快照几何插值＋三层错峰 0 / 0.18D / 0.34D＋预模糊双层只切 opacity）；打字区因逐键重排、断行随宽度变化、曲线画布每帧重绘，克隆位图物理不成立，保留逐帧插值通道但共用同一时间源。
 - **实时 WPM 曲线**：Canvas 采样绘制，约 1 秒一个点（上限 240 点），页面不可见时自动暂停。
 - **按键音效**：WebAudio 实时合成，三种风格（柔和 / 机械 / 打字机），错键低音、退格与完成音区分，默认开启柔和档。
 - **成绩分享卡**：Canvas 生成 1200×675 PNG，含 WPM、准确率、用时、昵称与连续打卡天数，可下载。
@@ -102,9 +103,9 @@
 ```bash
 cd server-source
 
-# 后端从自身所在目录读取 public/index.html，先准备静态目录
+# 后端从自身所在目录读取 public/，把 v2 六文件复制进去
 mkdir -p public
-cp index.server.html public/index.html
+cp v2/index.html v2/tokens.css v2/app.css v2/data.js v2/motion.js v2/app.js public/
 
 # 启动（默认 8000 端口，可传参改端口）
 python3 server.py 8000
@@ -133,13 +134,27 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 ```
 .
 ├── README.md
+├── demo/
+│   └── app-open-animation.html   # FLIP 翻牌动效参考原型（v2.0 动画引擎的机制来源）
 └── server-source/
     ├── server.py                 # 后端：HTTP 服务 + API + SQLite（零依赖）
-    ├── index.server.html         # 权威前端单文件（线上部署名 index.html）
+    ├── v2/                       # v2.0 权威前端源码（六文件）＋ 发布构建工具
+    │   ├── index.html            #   页面结构（外链 CSS/JS，含内嵌音标字体与防闪烁脚本）
+    │   ├── tokens.css            #   设计令牌：29 个 :root 变量（色板/时长/缓动/字体栈）
+    │   ├── app.css               #   组件样式（按域分区组织）
+    │   ├── data.js               #   全部语料常量（词表/短语/篇章/每日一句，只读数据）
+    │   ├── motion.js             #   StudioMotionEngine：统一缓动/三档时长/FLIP 克隆层/预模糊
+    │   ├── app.js                #   业务逻辑（十个功能域，含专注镜头逐帧通道）
+    │   ├── build-release.py      #   发布构建：剥 JS 注释 → 产出七文件发布包（含 server.py）
+    │   └── verify-strip.js       #   剥离安全门禁：浏览器内逐函数体/语料常量比对
+    ├── deploy-v2.server.sh       # v2 生产发布脚本：双版本并存 + 符号链切换 + trap 自动回滚
+    ├── index.server.html         # v1.8 前端单文件（历史留档，生产回滚基线）
     ├── index.html                # 旧版前端，仅作历史基线，不用于生产
-    ├── update-typing.server.sh   # 生产发布脚本：备份 → 原子替换 → 重启 → 健康检查 → 失败回滚
+    ├── update-typing.server.sh   # v1.x 发布脚本（历史保留，v2 起改用 deploy-v2）
     └── 更新部署.sh                # 旧版简易重启脚本（历史保留）
 ```
+
+**v2.0 文件职责边界**：`data.js` 只放数据、`motion.js` 只管动画机制（不 import 业务）、`app.js` 只写业务（动画一律经引擎接口取时长与缓动，不自写常量）。CSS 令牌值与 v1.8 完全一致，只重写了组织方式。
 
 仓库只跟踪**源码与文档**。以下产物已在 `.gitignore` 中排除，不入库：
 
@@ -151,7 +166,7 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 | `*.tar.gz` | 发布归档改由 **Release 附件**分发，避免仓库随发布持续膨胀 |
 | `.workbuddy-ai/` | 本机工具与项目记忆数据 |
 
-历次发布归档请到 [Releases](https://github.com/123WDNMD123/ielts-typing-practice/releases) 下载，命名形如 `typing-practice-v1.7.tar.gz` / `typing-practice-v1.7.1.tar.gz`（仅三份源码，**不含数据库**）。v1.0 之前的提交中仍可追溯早期归档文件。
+历次发布归档请到 [Releases](https://github.com/123WDNMD123/ielts-typing-practice/releases) 下载，命名形如 `typing-practice-v2.0.tar.gz`（v2 起为七文件发布包：六个前端文件 + `server.py`；v1.x 为三份源码），**均不含数据库**。v1.0 之前的提交中仍可追溯早期归档文件。
 
 ---
 
@@ -259,8 +274,9 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 - 登录/注册失败按 `IP + 账号` 限流，缓解在线爆破。
 - 姓名与账号字符白名单校验，杜绝可注入字符进入教师视图。
 - 响应头：`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: same-origin`、`Cross-Origin-Opener-Policy: same-origin`。
-- CSP 禁止外域脚本与数据外发（`default-src 'self'`、`connect-src 'self'`、`frame-ancestors 'none'`）；页面无外部资源，脚本样式均内联。
-- 静态文件路径经 `realpath` 归一并限定在 `public/` 内，防目录穿越。
+- CSP 禁止外域脚本与数据外发（`default-src 'self'`、`connect-src 'self'`、`frame-ancestors 'none'`）；页面无外部资源，v2.0 拆分后的脚本样式仍全部同源（`script-src 'self'` 天然放行外链本地文件）。
+- 用户输入（查词、生词本词条、昵称等）进入 DOM 一律经 `esc()` 转义；动作按钮走 `data-*` 属性＋事件委托，**不把用户字符串拼进 `onclick`**（v2.0 修复了 v1.8 生词本/管理表格两处注入面：含 `'` 的词条会让按钮 SyntaxError 失效，含 `\` 的词条实参被转义吞字）。
+- 静态文件路径经 `realpath` 归一并限定在 `public/` 内，防目录穿越；生产 `public` 为符号链时两侧统一 `realpath` 解析，版本切换不影响该约束与 gzip 判定。
 
 ---
 
@@ -272,6 +288,8 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 - 常驻动画只动 `transform: translate`，配合 `will-change: transform` 提升为合成层；
 - `backdrop-filter` 不与常驻动画同屏；
 - 页面不可见时暂停背景动画与曲线采样；动效「关闭」档与 `prefers-reduced-motion` 下全部动画停用。
+
+v2.0 动画引擎在此之上另有一条**通道选择红线**：FLIP 克隆层是位图快照，只可用于内容静态的转场（Tab / 弹窗 / 卡片）。凡「内容每帧在变」的场景——打字区逐键重排且 `pre-wrap + overflow-wrap:anywhere` 下断行随宽度变化、实时曲线 `canvas` 每帧按 DPR 重绘、动画由打字首键触发且焦点不可中断——克隆位图物理不成立（缩放会拉伸文字、曲线是死像素），必须走逐帧插值通道。两条通道共用同一缓动函数与时长令牌，观感无缝。
 
 镜头过渡（focusDolly）另有两条来自 CDP tracing 实测的约束：
 
@@ -311,6 +329,8 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 
 本地实测（Edge headless，rAF 帧间隔采样 + longtask 观测）：空闲、半专注、全屏打字、分享弹窗、动效关闭五种场景均 ≈60fps，p95 帧间隔 ≤16.8ms，零长任务；五段镜头飞行 58–60fps，四段落定突跳 `dw=0 / dh=0`、落定瞬间全量几何零差异，四段边框不变量违规数 0，绝对基线门禁桌面/移动全通过。生产站点真实浏览器复测同样达标。
 
+v2.0 重写后在**源码版与剥离版两个服务上双跑**同一套门禁复验：五场景帧率全 ≥55fps、镜头飞行 57.2–60fps（longtask ≤1）、四段边框不变量零违规（22/29/31/30 飞行帧）、落定几何与 v1.8 基线逐位相同（桌面 half 414 / full 724，移动 388.23 / 636，bottomGap 全 0）、实时曲线 18 用例逐字节相等、音标门禁 1178 词条 46 字形零 fallback、三档屏宽（1440/390/320）× 明暗 × 8 场景共 48 张目检截图零 pageerror。
+
 > **帧率/几何边界失败的排除法**：本机负载会让 rAF 采样出现大幅抖动，且失败段每次漂移。出现边界 FAIL 时**先做「同机 + 旧版本」双重对照**再下结论：用 `git show <已上线提交>:server-source/index.server.html` 导出旧版另起一个端口，同机同探针交替各跑三次。v1.8 验收时本机曾测得新版 44.5–56fps，而**已上线的 v1.7.2 同机只有 20–42.6fps（更低）**，`dolly-geom` 的 `dw=94` 与 `dolly-test` 的 `maxJump≈47px` 也在旧版同样复现——确证为环境噪声而非回归。切勿凭单次结果判定性能退化。
 
 ---
@@ -319,30 +339,44 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
 
 生产以 systemd 服务 `typing-practice.service` 运行，应用目录 `/root/typing-server`，解释器 `/usr/bin/python3.11`。
 
-发布包只包含三份源码（`server.py`、`index.server.html`、`update-typing.server.sh`），**绝不携带数据库**。
+**v2.0 起采用双版本并存结构**：`public-v1/`（v1.8 单文件留档）与 `public-v2/`（六文件）两个实体目录，`public` 是指向其一的**符号链**。回滚 = 重指符号链，秒级、无需重启服务（已在符号链隔离环境实测双向切换：切链后逐文件 200 / 哈希 / gzip / 304 全部成立，旧版独有文件如实 404）。
+
+发布包含七份源码（六个前端文件 + `server.py`），**绝不携带数据库**。
 
 ```bash
-# 1. 本地打包（文件名用即将发布的版本号：功能版 vX.Y / 补丁版 vX.Y.Z）
-tar -czf typing-practice-vX.Y.Z.tar.gz \
-  -C server-source server.py index.server.html update-typing.server.sh
+# 1. 本地构建发布包（剥 JS 注释 + 收齐七文件；输出目录即暂存区）
+python3 server-source/v2/build-release.py /tmp/typing-v2-build
 
-# 2. 传到服务器独立暂存目录并校验哈希
+# 2.（可选但推荐）剥离安全门禁：两侧各起一个服务后逐函数体比对
+#    node server-source/v2/verify-strip.js http://127.0.0.1:<源码版端口> http://127.0.0.1:<剥离版端口>
+
+# 3. 打包传输（文件名用即将发布的版本号）
+tar -czf typing-practice-vX.Y.tar.gz -C /tmp/typing-v2-build \
+  index.html tokens.css app.css data.js motion.js app.js server.py
+
+# 4. 传到服务器独立暂存目录并校验哈希
 sha256sum /root/typing-release-xxxx/*
 
-# 3. 在维护窗口执行发布（root）
-bash /root/typing-release-xxxx/update-typing.server.sh \
-  /root/typing-release-xxxx /usr/bin/python3.11
+# 5. 在维护窗口执行发布（root）
+bash deploy-v2.server.sh /root/typing-release-xxxx
 ```
 
-发布脚本的行为：
+`deploy-v2.server.sh` 的行为：
 
-1. 校验暂存文件齐全、Python 版本合法、源码可编译、服务当前处于运行态；
-2. 备份现有 `server.py`、`index.html`、systemd 覆盖配置，并对生产库做**在线 SQLite 快照**（`sqlite3.backup`，不中断服务、不覆盖生产库）；
-3. 在目标目录内暂存新文件后 `mv` **原子替换**，避免服务读到半个文件；
-4. `daemon-reload` + 重启，随后健康检查：首页内容逐字节比对、`gzip` 生效、服务 active、解释器路径正确；
-5. 任一步失败触发 `trap` **自动回滚**代码与配置并重启，再做一次健康检查。
+1. 校验暂存七文件齐全并打印哈希；
+2. 备份现有 `server.py` 与当前前端目录，对生产库做**在线 SQLite 快照**（`sqlite3.backup`，不中断服务、不覆盖生产库），记录发布前表数与成绩数；
+3. 布置 `public-v2/` 实体目录（逐文件 `.new` 暂存后 `mv` **原子替换**＋哈希校验）；首次执行时把当前前端留档为 `public-v1/`；
+4. 原子替换 `server.py`、清 `__pycache__`、重启服务，把 `public` 符号链切到 `public-v2`；
+5. 健康检查**逐文件**：200 ＋ 内容哈希 ＋ **gzip 必须生效**；另验首页 304 协商（同编码口径）、nginx 80、访客 API 401、发布前后表数与成绩数一致；
+6. 任一步失败触发 `trap` **自动回滚**：符号链指回旧目标 ＋ 还原 `server.py` 并重启。
 
-备份目录形如 `/root/typing-backup/typing-opt-XXXXXXXX`。手动回滚即把该目录下的 `rollback-server.py` / `rollback-index.html` 覆盖回应用目录并重启服务。
+备份目录形如 `/root/typing-backup/typing-v2-YYYYMMDD_HHMMSS`（含 `server.py`、前端目录与数据库快照）。**日常回滚只需一条命令**：
+
+```bash
+ln -sfn /root/typing-server/public-v1 /root/typing-server/public   # 秒级切回 v1.8，无需重启
+```
+
+若 `server.py` 也需回退，从备份目录复制回来并 `systemctl restart typing-practice`。v1.x 时代的发布脚本 `update-typing.server.sh` 仍保留在仓库中，但 v2 结构下不再使用。
 
 发布后建议复验：公网 `GET`/`HEAD` 状态与内容哈希、`gzip` 压缩、`ETag` 304、访客接口，以及一次真实浏览器登录练习冒烟。
 
@@ -356,14 +390,15 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 
 ## 版本管理与发布记录
 
-版本通过 **GitHub Release** 发布，不再使用日期代号标签。号分两档：
+版本通过 **GitHub Release** 发布，不再使用日期代号标签。号分三档：
 
 | 形态 | 用于 | 例 |
 | --- | --- | --- |
-| `v1.Y` | **功能版本**：新增能力、交互重做、结构性改动 | `v1.6`、`v1.7`、`v1.8` |
-| `v1.Y.Z` | **补丁版本**：修既有功能的缺陷，不新增能力 | `v1.7.1`、`v1.7.2` |
+| `vX.0` | **架构版本**：前端整体重写、交付形态变化等重大结构性演进 | `v2.0` |
+| `vX.Y` | **功能版本**：新增能力、交互重做、结构性改动 | `v1.6`、`v1.7`、`v1.8` |
+| `vX.Y.Z` | **补丁版本**：修既有功能的缺陷，不新增能力 | `v1.7.1`、`v1.7.2` |
 
-补丁号挂在它所修复的那个功能版本下（`v1.7.1` 修的是 `v1.7` 引入的镜头过渡），同一功能版本可连续出 `.1`、`.2` …；下一个新功能进位到 `v1.9`。若一次上线同时含新功能与缺陷修复（如 `v1.8` 同时带来错键热力图/间隔重复与音标缺字修复），整体按**功能版本**计，不再拆号。
+补丁号挂在它所修复的那个功能版本下（`v1.7.1` 修的是 `v1.7` 引入的镜头过渡），同一功能版本可连续出 `.1`、`.2` …；下一个新功能在当前主版本内进位（v2.0 之后为 `v2.1`）。若一次上线同时含新功能与缺陷修复（如 `v1.8` 同时带来错键热力图/间隔重复与音标缺字修复），整体按**功能版本**计，不再拆号；`v2.0` 属架构版本——功能行为与 v1.8 完全等价（行为基线回放验证），但前端代码全部重写。
 
 **发布约定：**
 
@@ -379,7 +414,8 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 
 | 版本 | 上线时间 | 内容 |
 | --- | --- | --- |
-| [**v1.8**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.8) | 11-26 14:30 | **错键热力图（F2）**：按应打字符累计错误率、键盘分档着色、指法/热力两视图互斥、小样本不着色、节流批量上报、每日页错键分析分段；**间隔重复复习（F4）**：简化 SM-2 排程、到期徽标与只复习到期词、四档自评＋间隔预览、进度重置，与普通背单词两档模式互不干扰；**音标缺字修复**：内嵌 StudioPhonetic woff2（约 7.3KB base64），四处音标跨平台零缺字，打字区等宽对齐不变。新增 `keyerrors` 表与 `favorites` 六个调度列（幂等迁移，旧收藏立即到期）、6 条 API |
+| [**v2.0**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v2.0) | 11-26 | **前端整体重写（表现层架构版）**：单文件拆为六文件（结构/令牌/样式/语料/动画引擎/业务），十个功能域全部重新实现，功能行为与 v1.8 完全等价（20 条路径行为基线回放 ＋ 约 715 项专项断言 ＋ 曲线 18 用例像素级比对，新旧双版全通过）。**统一动画引擎**：FLIP 翻牌机制移植（飞行克隆层＋三层错峰＋预模糊双层），全站统一 `cubic-bezier(0.32,0.72,0,1)` 缓动与三档时长（180/320/500ms），CSS/WAAPI/rAF 三通道共用同一时间源；专注镜头保留逐帧通道（打字区/曲线物理上不可克隆）。**双版本并存发布**：`public-v1`/`public-v2` 实体目录＋符号链切换，回滚秒级无需重启；gzip 白名单改按扩展名判定＋realpath 归一（符号链下逐文件实测生效）。**顺带修复五处 v1.8 遗留缺陷**（均先在旧版逐键/最小复现取证）：①不限时模式打完最后一字符抛 TypeError、结算弹窗永不出现（光标高亮未守 pos 越界，影响最大）；②生词本三按钮 onclick 注入（含 `'` 词条全部失效、含 `\` 词条移除静默失败）；③管理表格同类注入；④登录弹窗关闭动画多挂 50ms；⑤主题切换过渡类多挂 100ms（④⑤均为 JS 硬编码时长与 CSS 令牌脱钩，改从引擎读同一时间源）。设计令牌值不变，视觉与 v1.8 一致 |
+| [v1.8](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.8) | 11-26 14:30 | **错键热力图（F2）**：按应打字符累计错误率、键盘分档着色、指法/热力两视图互斥、小样本不着色、节流批量上报、每日页错键分析分段；**间隔重复复习（F4）**：简化 SM-2 排程、到期徽标与只复习到期词、四档自评＋间隔预览、进度重置，与普通背单词两档模式互不干扰；**音标缺字修复**：内嵌 StudioPhonetic woff2（约 7.3KB base64），四处音标跨平台零缺字，打字区等宽对齐不变。新增 `keyerrors` 表与 `favorites` 六个调度列（幂等迁移，旧收藏立即到期）、6 条 API |
 | [v1.7.2](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7.2) | 11-26 12:40 | 修复一镜到底**末尾帧跳变**（六个独立来源）：量测窗口冻结布局过渡（消除 159px 横移）、全屏改 flex 填满替代魔法常量（消除 43px 压缩）、按真实兄弟间隙计算取代 margin 之和（消除 8–17px 长高）、修正 CSS 特异性覆盖使过渡真正被压制（消除页头突亮）、高度改用分数值、`flex-basis` 归零防止兄弟被压扁；末帧按真实时刻复核补写终值。另修全屏曲线标签与提示文字叠压。新增绝对基线门禁 |
 | [v1.7.1](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7.1) | 11-26 00:08 | 修复一镜到底飞行中组件与外框脱节：内部组件改为与外框同拍插值、文本区宽高每帧由外框推导（此前拉远穿出边框达 130.7px、推近留白 200px），四段边框不变量违规归零，落定仍零突跳、帧率不降 |
 | [v1.7](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.7) | 11-25 23:02 | 专注过渡重做为一镜到底（外框连续插值 + 合成层，落定零突跳）＋ 统一设置菜单（外观/账号两段）＋ 修复对话框层叠导致的 Esc 误关 |
@@ -394,8 +430,8 @@ bash /root/typing-release-xxxx/update-typing.server.sh \
 均为 2026 年。每个 Release 页面含完整变更说明与源码归档下载。
 
 ```bash
-git tag -l                          # 查看版本标签（v1.0 … v1.7、v1.7.1、v1.7.2、v1.8）
-git show v1.8 --stat                # 查看某版本改动
+git tag -l                          # 查看版本标签（v1.0 … v1.8、v2.0）
+git show v2.0 --stat                # 查看某版本改动
 ```
 
 早期日期代号标签（`v2026.11.25-opt` / `studio` / `motion` / `account` / `ambience` / `perf` / `batcha` / `dolly`）已在本次规范化中移除，对应关系依次为 v1.0 → v1.7；提交历史未作任何改写。
@@ -406,6 +442,6 @@ git show v1.8 --stat                # 查看某版本改动
 
 - **未启用 HTTPS**：当前按明确决定保持 HTTP，公网传输不加密，请勿在演示环境使用真实敏感密码。
 - **单机 SQLite**：适合课堂规模（数十人并发），未做分布式或读写分离。
-- **无外部依赖即无框架能力**：没有 ORM、模板引擎与前端构建链，改动直接编辑源码文件。
+- **无外部依赖即无框架能力**：没有 ORM、模板引擎与前端框架，开发直接编辑 `server-source/v2/` 源码文件；唯一的构建步骤是发布时可选的注释剥离（`build-release.py`，纯 Python 标准库）。
 - **教师账号需服务器初始化**，不能通过网页注册。
 - 仓库为公开仓库，**不包含任何真实账号、成绩数据或含学生姓名的截图**；`data.db` 与 `shots/` 已被忽略规则排除。

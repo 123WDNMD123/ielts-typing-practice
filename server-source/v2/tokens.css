@@ -1,0 +1,120 @@
+/* ============================================================
+   tokens.css — 设计令牌（v2.0）
+   令牌值与 v1.8 完全一致：本次只重写 CSS 组织与组件结构，不改视觉语言。
+   StudioAccent 主题引擎会在运行时覆盖 --primary / --accent 等派生值。
+   ============================================================ */
+
+:root{
+  color-scheme:light;
+  --bg:#f4f5ef;
+  --card:#fffefa;
+  --surface:#eef0e7;
+  --border:#dce1d4;
+  --text:#1d2b24;
+  --muted:#59685e;
+  --primary:#285c42;
+  --primary-soft:#e0ecde;
+  --on-primary:#fff;
+  --accent:#5c7028;
+  --ok:#2d6949;
+  --ok-soft:#e0eee1;
+  --err:#9a3d38;
+  --err-soft:#f7e5e0;
+  --hero:#e6edda;
+  --primary-glow:#285c4224;
+  --primary-edge:#285c4261;
+  --shadow:0 7px 24px #263a2210;
+  --radius:17px;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  --phonetic:StudioPhonetic,ui-monospace,SFMono-Regular,Consolas,monospace;
+  --sans:Inter,system-ui,"Microsoft YaHei","PingFang SC",sans-serif;
+  --rail-width:224px;
+  --key-pinky:#f8e5e5;
+  --key-ring:#faebd9;
+  --key-middle:#f6efcb;
+  --key-index:#dce9d9;
+  --key-right:#e0eafa;
+  --key-violet:#ebe4f6;
+}
+
+/* ============================================================
+   动画令牌（v2.0 新增）
+   与 motion.js 的 DUR / EASE 一一对应，CSS 与 JS 共用同一套节奏。
+
+   v1.8 的问题：交互时长散落成 16 种（.06/.07/.12/.14/.15/.18/.2/
+   .22/.24/.26/.3/.34/.35/.36/.42/.45/.5/.55s），缓动有 4 种自定义
+   贝塞尔外加大量裸 ease —— 这是「观感不统一」的根源。
+   v2.0 归并为三档时长 + 一条主缓动。
+   ============================================================ */
+:root{
+  /* 主缓动：demo 原值，快起慢落，尾段平坦 → 落定柔和无顿挫 */
+  --ease:cubic-bezier(0.32,0.72,0,1);
+  --ease-out:cubic-bezier(0.22,1,0.36,1);
+  --ease-inout:cubic-bezier(0.65,0,0.35,1);
+
+  /* 三档时长 */
+  --dur-micro:180ms;   /* 微交互：hover / 按键 / 小徽章 */
+  --dur-base:320ms;    /* 转场：Tab / 弹窗 / 卡片 */
+  --dur-macro:500ms;   /* 大几何：专注模式推近拉远 */
+
+  /* 派生：按压反馈比 micro 更短，保持手感锐利 */
+  --dur-tap:90ms;
+
+  /* 错峰比例（与 motion.js STAGGER 一致，供 CSS 列表动画用） */
+  --stagger-step:28ms;
+}
+
+/* lite 档：时长减半，且禁用大几何动画（由 motion.js 同步判定） */
+html[data-motion="lite"]{
+  --dur-micro:90ms;
+  --dur-base:160ms;
+  --dur-macro:250ms;
+  --dur-tap:45ms;
+}
+
+/* off 档与系统减弱动效：全部归零，直切 */
+html[data-motion="off"]{
+  --dur-micro:0ms;
+  --dur-base:0ms;
+  --dur-macro:0ms;
+  --dur-tap:0ms;
+  --stagger-step:0ms;
+}
+@media (prefers-reduced-motion:reduce){
+  :root{
+    --dur-micro:0ms;
+    --dur-base:0ms;
+    --dur-macro:0ms;
+    --dur-tap:0ms;
+    --stagger-step:0ms;
+  }
+}
+
+/* ============================================================
+   动画引擎的载体样式（motion.js 使用）
+   ============================================================ */
+
+/* 飞行克隆层：唯一参与几何变形的层。
+   只用于内容静态的转场；专注模式不用它（文本需重排、canvas 需重绘、焦点不能断）。 */
+.motion-fly{
+  position:absolute;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:60;
+  will-change:transform,opacity;
+  transform:translateZ(0);
+  backface-visibility:hidden;
+}
+
+/* 预模糊双层：blur 是静态滤镜，只切 opacity。
+   绝不对 blur 本身做动画 —— 大尺寸常驻 blur 是性能红线。 */
+.motion-blur-layer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:0;
+  filter:blur(28px) saturate(1.35) brightness(.82);
+  transform:scale(1.18) translateZ(0);
+  will-change:opacity;
+}
+html[data-motion="off"] .motion-blur-layer{display:none}

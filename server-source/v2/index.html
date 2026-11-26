@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雅思打字练习 · IELTS Typing Practice</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23285c42'/%3E%3Cpath d='m5 7 5 5-5 5m8 0h6' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"><link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/app.css">
+<script>
+(function(){
+  var theme = null;
+  try{ theme = localStorage.getItem('typingTheme'); }catch(e){}
+  if(theme !== 'dark' && theme !== 'light'){
+    theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', theme);
+
+  /* 个性化主题色引擎：由任意 hex 派生整套主题变量，首屏与主脚本共用，避免闪烁。 */
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  function hexToHsl(hex){
+    var r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+    var max=Math.max(r,g,b), min=Math.min(r,g,b), h=0, s=0, l=(max+min)/2;
+    if(max!==min){
+      var d=max-min;
+      s=l>0.5? d/(2-max-min) : d/(max+min);
+      if(max===r) h=(g-b)/d+(g<b?6:0); else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+      h*=60;
+    }
+    return [h, s*100, l*100];
+  }
+  function hslToHex(h,s,l){
+    h=((h%360)+360)%360; s=clamp(s,0,100)/100; l=clamp(l,0,100)/100;
+    var c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2, r=0, g=0, b=0;
+    if(h<60){r=c;g=x;} else if(h<120){r=x;g=c;} else if(h<180){g=c;b=x;}
+    else if(h<240){g=x;b=c;} else if(h<300){r=x;b=c;} else {r=c;b=x;}
+    function to(v){ var n=Math.round((v+m)*255).toString(16); return n.length<2?'0'+n:n; }
+    return '#'+to(r)+to(g)+to(b);
+  }
+  /* 无 color-mix 支持的老浏览器兜底：主题色带透明度的 rgba 串 */
+  function hexToRgba(hex,a){
+    return 'rgba('+parseInt(hex.slice(1,3),16)+','+parseInt(hex.slice(3,5),16)+','+parseInt(hex.slice(5,7),16)+','+a+')';
+  }
+  function lum(hex){
+    function ch(v){ v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }
+    return 0.2126*ch(parseInt(hex.slice(1,3),16))+0.7152*ch(parseInt(hex.slice(3,5),16))+0.0722*ch(parseInt(hex.slice(5,7),16));
+  }
+  function ratio(a,b){ var l1=lum(a), l2=lum(b); return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05); }
+  function varsFor(hex, dark){
+    var c=hexToHsl(hex), h=c[0], s=clamp(c[1],16,78), ah=(h+320)%360, v={};
+    if(dark){
+      /* 深色基底：随主题色相自动派生的近黑色阶（低饱和、亮度 5%～12%），
+         比纯黑更有层次，又不会像旧版那样呈现明显深绿；换主题色整套深色底自动协调。 */
+      var ns=clamp(s*0.18,5,12);
+      v['--bg']=hslToHex(h,ns,5);
+      v['--surface']=hslToHex(h,ns,7.5);
+      v['--card']=hslToHex(h,clamp(ns+2,6,14),10);
+      v['--hero']=hslToHex(h,clamp(ns+4,8,16),12.5);
+      v['--border']=hslToHex(h,clamp(ns+2,6,14),19);
+      v['--text']=hslToHex(h,8,93);
+      v['--muted']=hslToHex(h,6,66);
+      v['--shadow']='0 10px 30px #00000066';
+      v['--primary']=hslToHex(h,clamp(s,30,68),clamp(c[2]+38,62,82));
+      v['--on-primary']=hslToHex(h,35,12);
+      v['--primary-soft']=hslToHex(h,clamp(s*0.5,16,40),20);
+      v['--accent']=hslToHex(ah,clamp(s,35,60),72);
+      v['--primary-glow']=hexToRgba(v['--primary'],0.16);
+      v['--primary-edge']=hexToRgba(v['--primary'],0.38);
+    }else{
+      var sat=clamp(s,30,70), l=clamp(c[2],22,38), p=hslToHex(h,sat,l);
+      while(ratio(p,'#ffffff')<4.5 && l>12){ l-=2; p=hslToHex(h,sat,l); }
+      v['--primary']=p;
+      v['--on-primary']=ratio(p,'#ffffff')>=4.5?'#ffffff':hslToHex(h,30,12);
+      v['--primary-soft']=hslToHex(h,clamp(s*0.55,18,50),90);
+      v['--hero']=hslToHex(h,clamp(s*0.5,18,46),92);
+      v['--accent']=hslToHex(ah,clamp(s,35,65),34);
+      v['--primary-glow']=hexToRgba(p,0.14);
+      v['--primary-edge']=hexToRgba(p,0.38);
+    }
+    return v;
+  }
+  var KEYS=['--primary','--on-primary','--primary-soft','--hero','--accent','--primary-glow','--primary-edge'];
+  var DARK_KEYS=['--bg','--surface','--card','--border','--text','--muted','--shadow'];
+  window.StudioAccent={
+    defaultHex:'#285c42',
+    presets:[
+      {hex:'#285c42',name:'松林绿'},
+      {hex:'#1f5a8a',name:'深海蓝'},
+      {hex:'#0f6b62',name:'青碧'},
+      {hex:'#5b4a9e',name:'鸢尾紫'},
+      {hex:'#a83a5f',name:'玫瑰红'},
+      {hex:'#b45309',name:'琥珀橙'}
+    ],
+    varsFor:varsFor,
+    apply:function(hex,dark){
+      var st=document.documentElement.style;
+      if(!dark){ DARK_KEYS.forEach(function(k){ st.removeProperty(k); }); }
+      if(!hex || hex.toLowerCase()===this.defaultHex){ KEYS.forEach(function(k){ st.removeProperty(k); }); return; }
+      var v=varsFor(hex,dark);
+      KEYS.forEach(function(k){ st.setProperty(k,v[k]); });
+      if(dark){ DARK_KEYS.forEach(function(k){ st.setProperty(k,v[k]); }); }
+    }
+  };
+  var saved=null;
+  try{ saved=localStorage.getItem('typingAccent'); }catch(e){}
+  window.StudioAccent.apply(saved && /^#[0-9a-fA-F]{6}$/.test(saved) ? saved.toLowerCase() : null, theme==='dark');
+
+  /* 动效档位引擎：full 完整 / lite 精简 / off 关闭；系统减弱动效强制 off，首屏即生效。 */
+  var motion=null;
+  try{ motion=localStorage.getItem('typingMotion'); }catch(e){}
+  if(motion!=='full' && motion!=='lite' && motion!=='off'){ motion='full'; }
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ motion='off'; }
+  document.documentElement.setAttribute('data-motion', motion);
+  window.StudioMotion={
+    get:function(){ return document.documentElement.getAttribute('data-motion') || 'full'; },
+    set:function(mode){
+      if(mode!=='full' && mode!=='lite' && mode!=='off') return;
+      document.documentElement.setAttribute('data-motion', mode);
+      try{ localStorage.setItem('typingMotion', mode); }catch(e){}
+    },
+    reduced:function(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  };
+})();
+</script>
+</head>
+<body>
+<a class="skip-link" href="#appMain">跳到主内容</a>
+<div class="ambient-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
+<aside class="sidebar" id="sidebar" aria-label="工作台侧栏">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 7 5 5-5 5m8 0h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <div><b>雅思打字练习</b><span>IELTS TYPE STUDIO</span></div>
+  </div>
+  <nav aria-label="主要导航">
+    <div class="nav-caption">练习工作台</div>
+    <button id="tab-daily" class="active" aria-current="page" data-index="01" onclick="switchTab('daily')">日常练习</button>
+    <button id="tab-test" data-index="02" onclick="switchTab('test')">速度测试</button>
+    <button id="tab-course" data-index="03" onclick="switchTab('course')">分级课程</button>
+    <button id="tab-library" data-index="04" onclick="switchTab('library')">雅思语料</button>
+    <div class="nav-caption nav-spaced">成绩与管理</div>
+    <button id="tab-history" data-index="05" onclick="switchTab('history')">我的成绩</button>
+    <button id="tab-class" class="hidden" data-index="06" onclick="switchTab('class')">全班记录</button>
+    <button id="tab-admin" class="hidden" data-index="07" onclick="switchTab('admin')">后台管理</button>
+  </nav>
+  <div class="sidebar-foot">
+    <!-- 统一设置入口：账号身份 + 当前主题色一并呈现，点击进设置面板（外观 / 账号两段） -->
+    <button type="button" id="settingsEntry" class="user-card settings-entry" onclick="openSettings()" aria-haspopup="dialog" aria-controls="settingsModal" title="打开设置：外观（主题色 / 深浅 / 动效 / 音效）与账号（信息 / 昵称 / 密码）">
+      <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
+      <div class="user-body"><b id="userDisplay">未登录</b><span class="settings-entry-sub"><i class="accent-entry-dot" aria-hidden="true"></i><span id="settingsEntryAccent">松林绿</span></span></div>
+      <span class="user-caret" aria-hidden="true">▸</span>
+    </button>
+  </div>
+</aside>
+<button type="button" id="sidebarBackdrop" class="sidebar-backdrop hidden" tabindex="-1" aria-label="关闭菜单" onclick="closeSidebar(true)"></button>
+<main class="main" id="appMain" tabindex="-1">
+<div class="wrap">
+  <header class="studio-header">
+    <div class="studio-trail"><button type="button" id="menuToggle" class="btn ghost menu-button" aria-controls="sidebar" aria-expanded="false" onclick="openSidebar()">菜单</button><span class="trail-root">练习工作台</span><span class="trail-divider" aria-hidden="true">/</span><span id="studioSection">日常练习</span></div>
+    <span class="studio-edition">IELTS <i></i> TYPE STUDIO</span>
+  </header>
+
+  <!-- ========== 速度测试 ========== -->
+  <div id="page-test" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 02 / SPEED TEST</div><h1>速度测试</h1><p>用真实雅思素材测量你的输入速度与准确率。</p></div>
+    <section class="card configuration-card" aria-labelledby="testSetupTitle">
+      <div class="panel-header"><div><div class="panel-kicker">SESSION SETUP</div><h2 id="testSetupTitle">设置本次测试</h2></div><span class="panel-chip"><i></i> 按下第一键开始计时</span></div>
+      <div class="test-settings">
+        <div class="setting-field"><label for="testDuration">测试时长</label>
+        <select id="testDuration">
+          <option value="30">30 秒</option>
+          <option value="60" selected>1 分钟</option>
+          <option value="120">2 分钟</option>
+          <option value="180">3 分钟</option>
+        </select></div>
+        <div class="setting-field"><label for="testSource">练习素材</label>
+        <select id="testSource">
+          <option value="all" selected>随机（阅读+听力）</option>
+          <option value="readings">阅读文章</option>
+          <option value="listenings">听力原文</option>
+        </select></div>
+      </div>
+      <div class="row test-actions"><button class="btn" onclick="startTest()">开始测试</button><button class="btn ghost" onclick="resetSession()">重置</button></div>
+    </section>
+    <div class="card test-guide"><span class="panel-kicker">HOW IT IS SCORED</span><p>每 5 个正确字符折算为 1 个标准词。测试期间可查看 WPM、准确率和剩余时间。</p></div>
+  </div>
+
+  <!-- ========== 分级课程 ========== -->
+  <div id="page-course" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 03 / COURSES</div><h1>分级课程</h1><p>从单词、词组到完整篇章，选择适合现在的难度。</p></div>
+    <div class="card" id="courseMenu">
+      <div class="panel-header"><div><div class="panel-kicker">PICK A LEVEL</div><h2>选择难度</h2></div></div>
+      <div class="lvl-btns">
+        <div class="lvl-btn" role="button" tabindex="0" onclick="startCourse('beginner')">
+          <span class="tag">初级</span>
+          <h3>单字练习</h3>
+          <p>雅思真题高频单词逐个输入，熟悉键盘位置与基础指法</p>
+        </div>
+        <div class="lvl-btn" role="button" tabindex="0" onclick="startCourse('intermediate')">
+          <span class="tag">中级</span>
+          <h3>词组练习</h3>
+          <p>真题中提取的常用词组与搭配，训练单词间的连贯输入</p>
+        </div>
+        <div class="lvl-btn" role="button" tabindex="0" onclick="showPassages()">
+          <span class="tag">高级</span>
+          <h3>文章段落</h3>
+          <p>完整的雅思阅读文章与听力原文，含标点、大小写与数字</p>
+        </div>
+      </div>
+    </div>
+    <div class="card hidden" id="passageMenu">
+      <h2>选择练习素材 <button class="btn ghost" style="float:right;font-size:13px;padding:5px 12px" onclick="backToMenu()">返回</button></h2>
+      <div class="passage-list" id="passageList"></div>
+    </div>
+  </div>
+
+  <!-- ========== 雅思语料库 ========== -->
+  <div id="page-library" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 04 / EXPRESSION LIBRARY</div><h1>雅思语料</h1><p>搜索可迁移的表达，把读过的句子亲手输入一遍。</p></div>
+    <div class="card">
+      <div class="library-head">
+        <div>
+          <h2>雅思表达库</h2>
+          <p style="margin:0;color:var(--muted);font-size:14px;line-height:1.7">写作观点、口语表达、同义替换与听力细节。先读懂，再亲手输入一遍，把“见过”变成“能输出”。</p>
+        </div>
+        <div class="library-count"><b id="libraryCount">0</b>条可练语料</div>
+      </div>
+      <div class="library-toolbar">
+        <input id="librarySearch" placeholder="搜索英文、中文或话题，如 education / 环境 / 政府" oninput="renderLibrary()" aria-label="搜索雅思语料">
+        <button class="btn ghost" onclick="clearLibrarySearch()">清空搜索</button>
+      </div>
+      <div class="library-filters" id="libraryFilters">
+        <button class="library-filter active" data-cat="all" onclick="setLibraryFilter('all')">全部</button>
+        <button class="library-filter" data-cat="writing" onclick="setLibraryFilter('writing')">写作观点</button>
+        <button class="library-filter" data-cat="speaking" onclick="setLibraryFilter('speaking')">口语表达</button>
+        <button class="library-filter" data-cat="paraphrase" onclick="setLibraryFilter('paraphrase')">同义替换</button>
+        <button class="library-filter" data-cat="listening" onclick="setLibraryFilter('listening')">听力细节</button>
+      </div>
+      <div class="library-grid" id="libraryList"></div>
+    </div>
+    <div class="card path-card">
+      <h2>怎么用这座语料库？</h2>
+      <div class="path-grid">
+        <button class="path-step" onclick="setLibraryFilter('writing')"><b>写作：积累观点</b><span>每条都是完整可迁移的观点句，注意论证逻辑而非死记模板。</span></button>
+        <button class="path-step" onclick="setLibraryFilter('speaking')"><b>口语：练自然表达</b><span>先朗读，再输入，最后遮住原文复述，避免书面腔。</span></button>
+        <button class="path-step" onclick="setLibraryFilter('paraphrase')"><b>替换：突破词汇复用</b><span>对照两种表达，练习在写作与口语中灵活换说法。</span></button>
+        <button class="path-step" onclick="setLibraryFilter('listening')"><b>听力：抓数字与细节</b><span>重点听辨时间、日期、价格与地点，输入时核对细节。</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 日常练习（含生词本） ========== -->
+  <div id="page-daily" class="page">
+    <section class="studio-hero" aria-labelledby="dailyTitle">
+      <div class="hero-copy"><div class="overline"><i></i> IELTS TYPING PRACTICE</div><h1 id="dailyTitle">日常打字训练<span>把熟悉的词，练成肌肉记忆。</span></h1><p>先练准，再练快。选一个雅思主题，从一轮词汇输入开始。</p></div>
+      <div class="hero-art" aria-hidden="true"><span class="art-tag">KEYBOARD PRACTICE</span><div class="key-art"><b>I</b><b>E</b><b>L</b><b>T</b><b>S</b></div><span class="art-caption">ACCURACY BEFORE SPEED</span></div>
+    </section>
+    <div class="daily-tabs" aria-label="日常练习视图">
+      <button type="button" id="dailyTabPractice" class="active" onclick="dailyView('practice')">练习</button>
+      <button type="button" id="dailyTabNotebook" onclick="dailyView('notebook')">生词本</button>
+      <button type="button" id="dailyTabKeys" onclick="dailyView('keys')">错键分析</button>
+    </div>
+    <div id="dailyPracticePanel">
+      <div class="practice-grid">
+      <section class="card practice-card" aria-labelledby="practiceTitle">
+        <div class="panel-header"><div><div class="panel-kicker">01 / VOCABULARY</div><h2 id="practiceTitle">词汇练习</h2></div><span class="panel-chip"><i></i> 单词模式</span></div>
+          <div class="daily-settings">
+            <label for="dailyTopic">训练话题</label>
+            <select id="dailyTopic" onchange="dailySettingsChanged()">
+              <option value="all">全部核心词</option>
+              <option value="education">教育学习</option>
+              <option value="environment">环境生态</option>
+              <option value="technology">科技媒体</option>
+              <option value="health">健康生活</option>
+              <option value="society">社会政府</option>
+              <option value="economy">经济工作</option>
+              <option value="culture">文化旅游</option>
+              <option value="science">科学研究</option>
+            </select>
+            <label for="dailyLength">每轮</label>
+            <select id="dailyLength" onchange="dailySettingsChanged()">
+              <option value="10">10 词</option>
+              <option value="20" selected>20 词</option>
+              <option value="30">30 词</option>
+              <option value="50">50 词</option>
+            </select>
+            <button class="btn ghost" onclick="startDaily()">换一批</button>
+          </div>
+        <div class="daily-top">
+          <div class="daily-stats">
+            <div class="cell"><b id="dWpm">0</b><span>WPM</span></div>
+            <div class="cell acc"><b id="dAcc">100%</b><span>ACC</span></div>
+            <div class="cell"><b id="dProg">0%</b><span>进度</span></div>
+          </div>
+          <button class="btn ghost" onclick="dailySkip()">跳过</button>
+        </div>
+        <div class="daily-word-box">
+          <div id="dailyInputView">
+            <div id="dailyArea" tabindex="-1" class="daily-word" onclick="focusDailyInput()"></div>
+            <input id="dailyInput" class="hidden-input" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="日常练习输入框">
+            <div class="daily-meta">
+              <span class="daily-phonetic" id="dPhonetic"></span>
+              <button class="btn ghost" id="dAutoSpeak" onclick="dailyAutoSpeakToggle(); if(event.detail) focusAfterDailyAction()" aria-pressed="false" title="开启后切换到新单词时自动朗读">自动发音：关</button>
+              <button class="btn ghost" onclick="dailySpeak(); if(event.detail) focusAfterDailyAction()">发音</button>
+              <button class="btn ghost daily-fav" id="dFav" onclick="dailyFav(); if(event.detail) focusAfterDailyAction()">收藏</button>
+            </div>
+            <div class="daily-def" id="dDef"></div>
+          </div>
+          <div id="wordCard" class="word-card hidden" role="button" tabindex="0" onclick="continueAfterCard()" title="点击继续">
+            <div class="wc-word" id="wcWord"></div>
+            <div class="wc-phonetic" id="wcPhonetic"></div>
+            <div class="wc-def" id="wcDef"></div>
+            <div class="wc-actions">
+              <button class="btn ghost" onclick="event.stopPropagation();dailySpeak()">发音</button>
+              <button class="btn ghost wc-fav" id="wcFav" onclick="event.stopPropagation();toggleFavFromCard()">收藏</button>
+              <button class="btn" onclick="event.stopPropagation();continueAfterCard()">继续</button>
+            </div>
+          </div>
+          <div id="dailySummary" class="daily-summary hidden">
+            <div class="confetti" id="confetti"></div>
+            <div class="ds-title">本轮完成</div>
+            <div id="dsRecord" class="record-badge hidden">★ 新纪录！刷新个人最佳 WPM</div>
+            <div class="ds-grid">
+              <div class="ds-cell"><b id="dsWpm">0</b><span>WPM</span></div>
+              <div class="ds-cell"><b id="dsAcc">0%</b><span>准确率</span></div>
+              <div class="ds-cell"><b id="dsCorrect">0</b><span>正确</span></div>
+              <div class="ds-cell"><b id="dsErr">0</b><span>错误</span></div>
+              <div class="ds-cell"><b id="dsSkip">0</b><span>跳过</span></div>
+              <div class="ds-cell"><b id="dsTime">0s</b><span>用时</span></div>
+            </div>
+            <div id="dSaveTip" class="hidden" style="background:var(--err-soft);color:var(--err);font-size:13px;padding:9px 12px;border-radius:8px;margin:0 auto 16px;max-width:440px;text-align:left">⚠️ 成绩未能保存到服务器（服务器可能未启动或网络断开）。</div>
+            <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
+              <button class="btn" onclick="startDaily()">再来一轮</button>
+              <button class="btn ghost" onclick="openShareCard(lastDailyResult)">生成分享卡</button>
+              <button class="btn ghost hidden" id="dRetryBtn" onclick="retrySaveDaily()">重试保存</button>
+            </div>
+          </div>
+        </div>
+        <div class="daily-tip" id="dailyTip">点击单词区开始输入，练完一个词可查看词卡。</div>
+      </section>
+      <section class="card daily-quote" aria-labelledby="quoteTitle">
+        <div class="panel-header"><div><div class="panel-kicker">02 / DAILY SENTENCE</div><h2 id="quoteTitle">每日一句</h2></div><span class="quote-mark" aria-hidden="true">“</span></div>
+        <div id="homeSentencePreview">
+          <blockquote class="quote-en" id="homeSentenceEn" lang="en"></blockquote>
+          <p class="quote-zh" id="homeSentenceZh"></p>
+          <div class="quote-actions">
+            <button class="btn" onclick="practiceHomeSentence()">练这一句</button>
+            <button class="btn ghost" onclick="nextHomeSentence()">换一句</button>
+          </div>
+        </div>
+        <div id="homeSentencePractice" class="sentence-practice hidden">
+          <div id="homeSentenceTarget" class="sentence-target" tabindex="0" onclick="focusHomeSentenceInput()" aria-label="每日一句打字区"></div>
+          <input id="homeSentenceInput" class="hidden-input" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="每日一句输入框">
+          <div class="sentence-status"><span id="homeSentenceProgress">0 / 0</span><span id="homeSentenceErrors">错误 0</span><span>标点自动跳过</span></div>
+          <div class="quote-zh hidden" id="homeSentencePracticeZh"></div>
+          <div class="sentence-actions">
+            <button class="btn ghost" id="homeSentenceZhBtn" onclick="toggleHomeSentenceZh()">显示释义</button>
+            <button class="btn ghost" onclick="speakHomeSentence()">朗读</button>
+            <button class="btn ghost" onclick="resetHomeSentencePractice()">重练</button>
+            <button class="btn ghost" onclick="exitHomeSentencePractice()">退出</button>
+          </div>
+          <div id="homeSentenceResult" class="sentence-result hidden">
+            <b>本句完成</b><p id="homeSentenceResultText"></p>
+            <div class="sentence-actions"><button class="btn" onclick="nextHomeSentencePractice()">下一句</button><button class="btn ghost" onclick="resetHomeSentencePractice()">再练一次</button></div>
+            <div id="homeSentenceSaveTip" class="sentence-save-tip hidden" role="status">成绩未能保存，请检查网络后重试本句。</div>
+          </div>
+        </div>
+        <div class="quote-footer"><span>LISTEN</span><i></i><span>TYPE</span><i></i><span>REPEAT</span></div>
+      </section>
+      </div>
+      <div class="card path-card">
+        <div class="panel-header"><div><div class="panel-kicker">THE STUDY ROUTE</div><h2>推荐学习路径</h2></div></div>
+        <div class="path-grid">
+          <button class="path-step" onclick="dailyView('practice');document.getElementById('dailyArea').focus()"><b>01 词汇识别</b><span>每天 20 词：看词、听音、输入、收藏，建立词形与发音连接。</span></button>
+          <button class="path-step" onclick="if(switchTab('course')) startCourse('intermediate')"><b>02 搭配输出</b><span>练高频词组，关注单词之间的连贯输入与固定搭配。</span></button>
+          <button class="path-step" onclick="switchTab('library')"><b>03 句子迁移</b><span>进入表达库，把主题词汇放进完整观点句中使用。</span></button>
+          <button class="path-step" onclick="if(switchTab('course')) showPassages()"><b>04 篇章稳定</b><span>用真题文章训练长文本节奏，最后再做 1 分钟测速。</span></button>
+        </div>
+      </div>
+    </div>
+    <div id="dailyNotebookPanel" class="hidden">
+      <div class="card">
+        <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">生词本
+          <span class="nb-count" id="nbCount"></span>
+        </h2>
+        <div class="srs-bar hidden" id="srsBar">
+          <span class="srs-badge" id="srsBadge"></span>
+          <button class="btn" id="srsDueBtn" onclick="startReview(true)">复习到期</button>
+          <button class="btn ghost" id="srsResetBtn" onclick="srsResetAll()">重置复习进度</button>
+        </div>
+        <div class="nb-toolbar" id="nbToolbar">
+          <input id="nbSearch" placeholder="搜索收藏的单词" oninput="renderNotebook()">
+          <button class="btn ghost" onclick="renderNotebook()">刷新</button>
+          <button class="btn" onclick="startReview()">背单词</button>
+          <button class="btn warn" onclick="notebookClear()">清空生词本</button>
+        </div>
+        <div class="nb-list" id="nbList"></div>
+        <div id="reviewPanel" class="hidden">
+          <div class="review-progress" id="reviewProgress"></div>
+          <div class="review-card" id="reviewCard" tabindex="0" onclick="reviewFlip()" title="点击翻面查看释义">
+            <div class="review-word" id="reviewWord"></div>
+            <div class="review-phonetic" id="reviewPhonetic"></div>
+            <div class="review-def hidden" id="reviewDef"></div>
+          </div>
+          <div class="review-actions">
+            <button class="btn" id="reviewFlipBtn" onclick="reviewFlip()">显示释义</button>
+            <button class="btn hidden" id="reviewKnownBtn" onclick="reviewMark(true)">认识</button>
+            <button class="btn warn hidden" id="reviewUnknownBtn" onclick="reviewMark(false)">不认识</button>
+            <button class="btn ghost" id="reviewSkipBtn" onclick="reviewNext()">下一个</button>
+          </div>
+          <!-- F4：四档自评（简化 SM-2）。仅在「复习到期」模式出现，普通背单词保持原两档。 -->
+          <div class="review-actions srs-grade hidden" id="srsGradeRow">
+            <button class="btn warn" onclick="srsGrade('again')">忘了<small>10 分钟</small></button>
+            <button class="btn ghost" onclick="srsGrade('hard')">模糊<small id="srsHardHint">稍后</small></button>
+            <button class="btn" onclick="srsGrade('good')">记得<small id="srsGoodHint">下次</small></button>
+            <button class="btn" onclick="srsGrade('easy')">很熟<small id="srsEasyHint">更久</small></button>
+          </div>
+          <div class="review-hint" id="reviewHint">先看单词回忆释义，再点卡片翻面确认 · 空格翻面，→ 下一个，Esc 退出</div>
+          <div style="text-align:center;margin-top:14px"><button class="btn ghost" onclick="reviewExit()">退出背单词</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- F2：错键分析独立视图。键盘卡片在两段专注下全程隐藏、练完即消失，
+         若只把热力图挂在打字区里，用户永远看不到自己的薄弱键位，故提升为日常练习的复盘页。 -->
+    <div id="dailyKeysPanel" class="hidden">
+      <div class="card">
+        <div class="panel-header"><div><div class="panel-kicker">03 / KEY ACCURACY</div><h2>错键分析</h2></div>
+          <button class="btn ghost kb-heat-reset" id="kbHeatReset" onclick="keyErrReset()">清空统计</button>
+        </div>
+        <p class="keys-intro">按「应该打的键」统计你的错误率——底色越深，说明这个键位越不稳。样本不足 <b id="kbMinSample">5</b> 次的键不着色，避免偶发一次失误就被标红。数据随账号保存，换设备也能看到。</p>
+        <div id="kbHeatPanel">
+          <div class="kb-heat-sum" id="kbHeatSum"></div>
+          <div class="kb-heat-top" id="kbHeatTop"></div>
+        </div>
+        <div id="kbBodyReview"></div>
+        <div class="kb-caption" id="kbCaptionHeat">
+          <span><i class="dot heat-0"></i>无错误</span>
+          <span><i class="dot heat-1"></i>偏低</span>
+          <span><i class="dot heat-2"></i>中等</span>
+          <span><i class="dot heat-3"></i>偏高</span>
+          <span><i class="dot heat-4"></i>薄弱</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 打字主区域（test 与 course 共用） ========== -->
+  <div id="typingSection" class="hidden">
+    <div class="card typing-card">
+      <div class="panel-kicker" id="panelKicker">ACTIVE SESSION / TYPE STUDIO</div>
+      <div class="row session-header" id="sessionHeader">
+        <h1 id="sessionTitle"></h1>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="ignoreCaseToggle" onchange="toggleIgnoreCase()">
+            忽略大小写
+          </label>
+          <button class="btn ghost" onclick="resetSession()" style="font-size:13px;padding:5px 12px">结束并返回</button>
+        </div>
+      </div>
+      <div class="material-title" id="materialTitle"></div>
+      <div class="live-hint" id="liveHint">开始输入后，这里会常驻显示下一个键与指法</div>
+      <div id="liveStats">
+        <div class="wpm"><b id="stWpm">0</b>WPM</div>
+        <div class="acc"><b id="stAcc">100%</b>准确率</div>
+        <div><b id="stTime">--:--</b>剩余时间</div>
+        <div><b id="stErr">0</b>错误</div>
+      </div>
+      <div id="typeArea" tabindex="-1" onclick="focusTypeInput()"></div>
+      <input id="typeInput" class="hidden-input" inputmode="text" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="打字输入框">
+      <div id="liveCurveWrap"><canvas id="liveCurve" aria-hidden="true"></canvas><span id="liveCurveLabel">实时 WPM</span></div>
+      <div id="progressBar"><div id="progressFill"></div></div>
+    </div>
+
+    <div class="card" id="keyboard">
+      <h2>键盘指法提示 <span style="font-size:12px;color:var(--muted);font-weight:400" id="kbSubtitle">高亮键 = 下一个应按的键</span></h2>
+      <div class="kb-mode-row">
+        <button class="btn ghost kb-mode on" id="kbModeFinger" onclick="kbSetMode('finger')" aria-pressed="true">指法配色</button>
+        <button class="btn ghost kb-mode" id="kbModeHeat" onclick="kbSetMode('heat')" aria-pressed="false">错键热力图</button>
+        <button class="btn ghost kb-mode-link" onclick="switchTab('daily');dailyView('keys')">错键分析 →</button>
+      </div>
+      <div id="kbBody"></div>
+      <div id="fingerHint">开始输入后，这里会提示应该使用哪根手指</div>
+      <div class="kb-caption" id="kbCaptionFinger">
+        <span><i class="dot" style="background:#fde8e8"></i>小指</span>
+        <span><i class="dot" style="background:#fef3e2"></i>无名指</span>
+        <span><i class="dot" style="background:#fef9c3"></i>中指</span>
+        <span><i class="dot" style="background:#dcfce7"></i>左手食指</span>
+        <span><i class="dot" style="background:#dbeafe"></i>右手食指</span>
+        <span><i class="dot" style="background:#ede9fe"></i>右手中指</span>
+      </div>
+      <div class="kb-caption hidden" id="kbCaptionHeatLive">
+        <span><i class="dot heat-0"></i>无错误</span>
+        <span><i class="dot heat-1"></i>偏低</span>
+        <span><i class="dot heat-2"></i>中等</span>
+        <span><i class="dot heat-3"></i>偏高</span>
+        <span><i class="dot heat-4"></i>薄弱</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 成绩记录 ========== -->
+  <div id="page-history" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 05 / MY PROGRESS</div><h1>我的成绩</h1><p>累计表现和最近 60 次练习明细，仅显示当前账号。</p></div>
+    <div class="stat-cards" id="statCards"></div>
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">成绩趋势
+        <button class="btn warn" style="font-size:13px;padding:5px 12px" onclick="clearHistory()">清空记录</button>
+      </h2>
+      <div id="chartBox"><canvas id="historyChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>历史明细</h2>
+      <div id="historyTable"></div>
+    </div>
+  </div>
+
+  <!-- ========== 全班记录（教师视角） ========== -->
+  <div id="page-class" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 06 / CLASS PROGRESS</div><h1>全班记录</h1><p>查看学生练习概况和最新成绩，按账号区分同名学生。</p></div>
+    <div class="stat-cards" id="classCards"></div>
+    <div class="card">
+      <h2>学生成绩总览 <button class="btn ghost" style="float:right;font-size:13px;padding:5px 12px" onclick="renderClass()">刷新</button></h2>
+      <div id="classTable"></div>
+    </div>
+    <div class="card">
+      <h2>最近练习动态</h2>
+      <div id="recentTable"></div>
+    </div>
+  </div>
+
+  <!-- ========== 后台管理（教师视角） ========== -->
+  <div id="page-admin" class="page hidden">
+    <div class="page-heading"><div class="overline"><i></i> 07 / CLASS ADMIN</div><h1>后台管理</h1><p>管理学生账号、设置初始密码和导出练习记录。</p></div>
+    <div class="card">
+      <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">学生账号管理
+        <button class="btn ghost" style="font-size:13px;padding:5px 12px" onclick="exportRecords()">导出成绩 CSV</button>
+      </h2>
+      <div class="admin-row">
+        <input id="admUsername" maxlength="20" placeholder="账号（3-20 位字母/数字）">
+        <input id="admDisplayName" maxlength="20" placeholder="学生姓名（用于成绩展示）">
+        <input id="admPassword" type="password" maxlength="128" placeholder="初始密码（至少 8 位）">
+        <button class="btn" onclick="adminCreateStudent()">创建学生</button>
+      </div>
+      <div class="admin-err" id="adminMsg"></div>
+      <div id="adminStudents"></div>
+    </div>
+  </div>
+  <footer class="studio-footer"><span>IELTS TYPE STUDIO</span><span>先练准，再练快。</span></footer>
+</div>
+</main>
+
+<!-- 专注模式浮动件：挂在 body（main 之外）——卡片 FLIP transform 不会形成包含块使其错位，
+     对话框打开时 appMain.inert 也不会连带禁用退出钮 -->
+<div id="focusCapsule" aria-hidden="true">
+  <span><b id="fcWpm">0</b>WPM</span>
+  <span><b id="fcAcc">100%</b>准确率</span>
+  <span><b id="fcTime">--:--</b><span id="fcTimeLabel">剩余</span></span>
+  <span class="fc-err"><b id="fcErr">0</b>错误</span>
+</div>
+<button type="button" id="focusExit" onclick="focusStepDown()" title="退出专注（Esc）" aria-label="退出专注模式">✕ 退出专注</button>
+
+<!-- 重置密码弹窗 -->
+<div id="pwModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pwTitle">
+  <div class="auth-card">
+    <div class="panel-kicker">ACCOUNT SECURITY</div>
+    <h2 id="pwTitle">重置密码</h2>
+    <div class="sub" id="pwTarget"></div>
+    <div class="auth-field">
+      <label for="pwNew">新密码（至少 8 位）</label>
+      <input id="pwNew" type="password" maxlength="128" autocomplete="new-password">
+    </div>
+    <div class="auth-error" id="pwError"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" onclick="closePwModal()">取消</button>
+      <button class="btn" onclick="adminSetPassword()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 登录/注册弹窗 -->
+<div id="authModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-layout">
+    <div class="auth-story" aria-hidden="true"><div class="overline"><i></i> IELTS TYPE STUDIO</div><strong>先练准，<br>再练快。</strong><p>从一轮词汇开始，把练过的英文变成考场上的输入习惯。</p><div class="key-art"><b>I</b><b>E</b><b>L</b><b>T</b><b>S</b></div></div>
+    <div class="auth-card">
+    <div class="panel-kicker">YOUR PRACTICE SPACE</div>
+    <h2 id="authTitle">登录</h2>
+    <div class="sub">登录后才能练习并保存成绩；学生可自助注册，教师账号由管理员创建。</div>
+    <div class="auth-tabs">
+      <button type="button" id="authTabLogin" class="active" onclick="setAuthMode('login')">登录</button>
+      <button type="button" id="authTabRegister" onclick="setAuthMode('register')">学生注册</button>
+    </div>
+    <div class="auth-field">
+      <label for="authUsername">账号</label>
+      <input id="authUsername" autocomplete="username" maxlength="20" placeholder="3～20 位字母、数字、点、下划线或短横线">
+    </div>
+    <div class="auth-field hidden" id="displayNameField">
+      <label for="authDisplayName">姓名（用于成绩展示）</label>
+      <input id="authDisplayName" maxlength="20" placeholder="例如：Cathy">
+    </div>
+    <div class="auth-field">
+      <label for="authPassword">密码</label>
+      <input id="authPassword" type="password" autocomplete="current-password" maxlength="128" placeholder="至少 8 位">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button type="button" id="authSubmit" class="btn" style="width:100%" onclick="submitAuth()">登录</button>
+    <div class="auth-note">注册时，如果该姓名还没有账号，会自动关联同名且尚未认领的历史成绩。</div>
+    </div>
+  </div>
+</div>
+
+<!-- 统一设置面板：外观（主题色/深浅/动效/音效）+ 账号（信息/昵称/密码/退出）
+     桌面居中弹窗，移动端底部抽屉；两段用分段控件切换，同一时刻只显示一段 -->
+<div id="settingsModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="appearance-panel settings-panel">
+    <div class="appearance-head"><h2 id="settingsTitle">设置</h2><button type="button" class="btn ghost appearance-close" onclick="closeSettings()">关闭</button></div>
+    <div class="settings-tabs" role="tablist" aria-label="设置分类">
+      <button type="button" id="settingsTabAppearance" role="tab" aria-selected="true" aria-controls="settingsPaneAppearance" onclick="settingsSection('appearance')">外观</button>
+      <button type="button" id="settingsTabAccount" role="tab" aria-selected="false" aria-controls="settingsPaneAccount" onclick="settingsSection('account')">账号</button>
+    </div>
+    <div id="settingsPaneAppearance" role="tabpanel" aria-labelledby="settingsTabAppearance">
+    <div class="appearance-section">
+      <div class="appearance-label"><span>主题色</span><span id="accentName">松林绿</span></div>
+      <div class="accent-swatches" id="accentSwatches" role="group" aria-label="主题色色板"></div>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>深浅模式</span></div>
+      <div class="mode-switch" role="group" aria-label="深浅模式">
+        <button type="button" id="modeLightBtn" onclick="setThemeMode('light')" aria-pressed="true">浅色</button>
+        <button type="button" id="modeDarkBtn" onclick="setThemeMode('dark')" aria-pressed="false">深色</button>
+      </div>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>动画效果</span></div>
+      <div class="motion-switch" role="group" aria-label="动画效果档位">
+        <button type="button" id="motionFullBtn" onclick="setMotionMode('full')" aria-pressed="true">完整</button>
+        <button type="button" id="motionLiteBtn" onclick="setMotionMode('lite')" aria-pressed="false">精简</button>
+        <button type="button" id="motionOffBtn" onclick="setMotionMode('off')" aria-pressed="false">关闭</button>
+      </div>
+      <p class="motion-note" id="motionNote">完整：全部动效；精简：保留打字手感，减少装饰动画；关闭：静态界面。系统「减弱动态效果」开启时自动关闭。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>按键音效</span><span id="soundStateLabel">开</span></div>
+      <div class="mode-switch" role="group" aria-label="按键音效开关">
+        <button type="button" id="soundOnBtn" onclick="setSoundOn(true)" aria-pressed="true">开</button>
+        <button type="button" id="soundOffBtn" onclick="setSoundOn(false)" aria-pressed="false">关</button>
+      </div>
+      <div class="motion-switch" role="group" aria-label="音效风格" style="margin-top:8px">
+        <button type="button" id="soundSoftBtn" onclick="setSoundStyle('soft')" aria-pressed="true">柔和</button>
+        <button type="button" id="soundMechBtn" onclick="setSoundStyle('mech')" aria-pressed="false">机械</button>
+        <button type="button" id="soundTypeBtn" onclick="setSoundStyle('typewriter')" aria-pressed="false">打字机</button>
+      </div>
+      <p class="motion-note">打字时播放轻柔键音，错键低音提示、完成上行音。音量克制，不影响他人。</p>
+    </div>
+    <p class="appearance-note">登录后外观偏好随账号同步，换设备自动恢复；未登录时仅保存在本机浏览器。</p>
+    </div>
+    <div id="settingsPaneAccount" class="hidden" role="tabpanel" aria-labelledby="settingsTabAccount">
+    <div class="appearance-section">
+      <div class="account-info">
+        <span class="user-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg></span>
+        <div class="account-info-body"><b id="accountName">—</b><span id="accountSub">—</span></div>
+      </div>
+      <dl class="account-meta">
+        <div><dt>登录账号</dt><dd id="accountUsername">—</dd></div>
+        <div><dt>注册时间</dt><dd id="accountCreated">—</dd></div>
+      </dl>
+      <p class="account-note">登录账号是身份标识，创建后不可修改；昵称用于成绩展示。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>修改昵称</span></div>
+      <div class="account-form">
+        <label for="accountDisplayName">昵称（用于成绩展示）</label>
+        <input id="accountDisplayName" maxlength="20" placeholder="例如：Cathy" autocomplete="nickname">
+        <button type="button" id="accountNameSave" class="btn" onclick="saveDisplayName()">保存昵称</button>
+        <p class="account-msg" id="accountNameMsg" role="status"></p>
+      </div>
+      <p class="account-note">1～20 位中文、字母、数字、空格或 . · _ -。修改后历史成绩的展示名同步更新，成绩数据不受影响。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>修改密码</span></div>
+      <div class="account-form">
+        <label for="accountOldPw">当前密码</label>
+        <input id="accountOldPw" type="password" autocomplete="current-password" maxlength="128" placeholder="输入当前密码">
+        <label for="accountNewPw">新密码</label>
+        <input id="accountNewPw" type="password" autocomplete="new-password" maxlength="128" placeholder="至少 8 位">
+        <label for="accountNewPw2">确认新密码</label>
+        <input id="accountNewPw2" type="password" autocomplete="new-password" maxlength="128" placeholder="再输入一次新密码">
+        <button type="button" id="accountPwSave" class="btn" onclick="savePassword()">修改密码</button>
+        <p class="account-msg" id="accountPwMsg" role="status"></p>
+      </div>
+      <p class="account-note">修改成功后本机保持登录，其他设备需用新密码重新登录。</p>
+    </div>
+    <div class="appearance-section">
+      <div class="appearance-label"><span>登录状态</span></div>
+      <button type="button" id="settingsLogoutBtn" class="btn ghost settings-logout" onclick="logout()">退出登录</button>
+      <p class="account-note">退出后本机练习现场清空，历史成绩仍保存在账号中，重新登录即可恢复。</p>
+    </div>
+    </div>
+  </div>
+</div>
+
+<!-- 结果弹窗 -->
+<div id="modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mdTitle">
+  <div class="box">
+    <div class="panel-kicker">SESSION REPORT</div>
+    <h2 id="mdTitle">测试完成</h2>
+    <div class="sub" id="mdSub"></div>
+    <div class="big"><span id="mdWpm">0</span> <small>WPM</small></div>
+    <div id="mdRecord" class="record-badge hidden">★ 新纪录！刷新个人最佳 WPM</div>
+    <div class="grid">
+      <div class="cell"><b id="mdAcc">0%</b><span>准确率</span></div>
+      <div class="cell"><b id="mdChars">0</b><span>正确字符数</span></div>
+      <div class="cell"><b id="mdErr">0</b><span>错误按键</span></div>
+      <div class="cell"><b id="mdTime">0s</b><span>用时</span></div>
+    </div>
+    <div id="mdSaveTip" class="hidden" style="background:var(--err-soft);color:var(--err);font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:14px;text-align:left">⚠️ 成绩未能保存到服务器（服务器可能未启动或网络断开）。请记下上面的成绩或截图，告诉老师。</div>
+    <div class="row">
+      <button class="btn" onclick="retrySession()">再来一次</button>
+      <button class="btn ghost" onclick="openShareCard(lastResult)">生成分享卡</button>
+      <button class="btn ghost" onclick="closeModal()">确定</button>
+      <button class="btn ghost" onclick="closeModal();switchTab('history')">查看我的成绩</button>
+    </div>
+  </div>
+</div>
+
+<!-- 成绩分享卡预览 -->
+<div id="shareModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="appearance-panel share-panel">
+    <div class="appearance-head"><h2 id="shareTitle">成绩分享卡</h2><button type="button" class="btn ghost appearance-close" onclick="closeShareCard()">关闭</button></div>
+    <div id="sharePreview"><img id="shareImg" alt="成绩分享卡预览"></div>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn" id="shareDownload" onclick="downloadShareCard()">下载 PNG</button>
+      <span class="account-note" style="margin:0">1200×675，含昵称不露账号，可直接发到班级群。</span>
+    </div>
+  </div>
+</div>
+
+<script src="/data.js"></script>
+<script src="/motion.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

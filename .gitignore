@@ -18,6 +18,11 @@ shots/
 *.tar.gz
 release-assets/
 
+# v2 发布构建产物（build-release.py 默认输出与 verify-strip.js 结果，可随时重建）
+server-source/v2/release/
+strip-verify.json
+_strip-report.json
+
 # 系统杂项
 Thumbs.db
 Desktop.ini

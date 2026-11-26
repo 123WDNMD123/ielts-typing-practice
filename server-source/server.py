@@ -53,7 +53,8 @@ SECURITY_HEADERS = (
     ("Referrer-Policy", "same-origin"),
     ("Cross-Origin-Opener-Policy", "same-origin"),
 )
-# 页面无外部资源，脚本样式均为内联，故保留 'unsafe-inline'；
+# 页面资源全部同源（v2.0 起脚本样式拆为同源外链文件，仍无第三方域）。
+# 保留 'unsafe-inline' 以兼容首屏防闪烁内联脚本与少量内联样式；
 # 关键在于禁止外域脚本/数据外发，堵住 XSS 的载荷投递通道。
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline';"
        " style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
@@ -70,7 +71,12 @@ MIME = {
     ".json": "application/json; charset=utf-8",
     ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
 }
+
+# 可压缩的文本型静态资源。v2.0 前端拆多文件后按扩展名判定，
+# 不再硬编码 index.html（否则 app.js / data.js 等不压缩，首屏传输量翻数倍）。
+GZIP_EXTS = {".html", ".js", ".css", ".json", ".svg"}
 
 
 class ApiError(Exception):
@@ -909,6 +915,11 @@ def accepts_gzip(header):
 
 
 class Handler(BaseHTTPRequestHandler):
+    # 静态文本 gzip 缓存：path -> (version, bytes)。
+    # v2.0 起前端拆为多文件（index.html / tokens.css / app.css / data.js / motion.js / app.js），
+    # 单槽缓存会让各文件互相踢掉缓存导致每次请求重压，故改为按路径分槽。
+    static_gzip = {}
+    # 兼容旧字段名（历史探针可能引用）
     homepage_gzip = None
 
     def log_message(self, fmt, *args):
@@ -938,7 +949,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def send_file(self, path):
         ext = os.path.splitext(path)[1].lower()
-        compressible = os.path.abspath(path) == os.path.join(PUBLIC, "index.html")
+        # v2.0：前端拆多文件，压缩白名单改为按扩展名判定（原先硬编码只压 index.html）。
+        # 注意 path 可能是 serve_static 解析过符号链的 realpath，故一律用 realpath 归一，
+        # 否则 public 挂符号链做版本切换时路径比对失配、gzip 会静默失效。
+        compressible = ext in GZIP_EXTS
         use_gzip = compressible and accepts_gzip(self.headers.get("Accept-Encoding", ""))
         try:
             with open(path, "rb") as f:
@@ -952,10 +966,10 @@ class Handler(BaseHTTPRequestHandler):
                 length = st.st_size
                 if not unchanged:
                     if use_gzip:
-                        cached = Handler.homepage_gzip
+                        cached = Handler.static_gzip.get(path)
                         if cached is None or cached[0] != version:
                             cached = (version, gzip.compress(f.read(), compresslevel=6))
-                            Handler.homepage_gzip = cached
+                            Handler.static_gzip[path] = cached
                         data = cached[1]
                         length = len(data)
                     elif self.command != "HEAD":
