@@ -192,7 +192,26 @@ def main():
     shutil.copyfile(os.path.join(os.path.dirname(SRC), "server.py"),
                     os.path.join(DIST, "server.py"))
     print("发布包就绪（七文件）:", DIST)
-    print("下一步: 跑 verify-strip.js 确认剥离安全，再打包传输执行 deploy-v2.server.sh")
+
+    # 门禁随包携带：README + 自检脚本。它们不进公网静态目录（部署脚本只
+    # 复制 FRONT_FILES 那六个文件），只在暂存区供 deploy-v2.server.sh 第
+    # 3.5 步校验「文档版本 == 本次发布版本」。
+    repo_root = os.path.abspath(os.path.join(SRC, "..", ".."))
+    readme = os.path.join(repo_root, "README.md")
+    checker = os.path.join(SRC, "check-readme.py")
+    carried = []
+    if os.path.isfile(readme):
+        shutil.copyfile(readme, os.path.join(DIST, "README.md"))
+        carried.append("README.md")
+    if os.path.isfile(checker):
+        shutil.copyfile(checker, os.path.join(DIST, "check-readme.py"))
+        carried.append("check-readme.py")
+    if carried:
+        print("门禁材料随包:", ", ".join(carried), "（不入 public，仅供发布校验）")
+    else:
+        print("警告: 未找到 README.md 或 check-readme.py，发布时将跳过 README 门禁")
+
+    print("下一步: 跑 verify-strip.js 确认剥离安全，再打包传输执行 deploy-v2.server.sh <staging> <version>")
 
 
 if __name__ == "__main__":

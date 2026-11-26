@@ -21,6 +21,8 @@
 - [安全设计](#安全设计)
 - [性能约束](#性能约束)
 - [生产部署与回滚](#生产部署与回滚)
+  - [发布流程（六步，顺序固定）](#发布流程六步顺序固定)
+  - [README 门禁](#readme-门禁)
 - [版本管理与发布记录](#版本管理与发布记录)
 - [已知限制](#已知限制)
 
@@ -149,6 +151,7 @@ python3 -c "import server; server.init_db(); server.create_teacher('teacher01', 
     │   ├── motion.js             #   StudioMotionEngine：读 CSS 令牌，37 个导出（含 BEAT/BACK）
     │   ├── app.js                #   业务逻辑（十个功能域，含专注镜头逐帧通道）
     │   ├── build-release.py      #   发布构建：剥 JS 注释 → 产出七文件发布包（含 server.py）
+    │   ├── check-readme.py       #   README 门禁：结构/版本一致性/陈旧残留（发布第 0 步）
     │   └── verify-strip.js       #   剥离安全门禁：浏览器内逐函数体/语料常量比对
     ├── deploy-v2.server.sh       # v2 生产发布脚本：双版本并存 + 符号链切换 + trap 自动回滚
     ├── index.server.html         # v1.8 前端单文件（历史留档，生产回滚基线）
@@ -377,7 +380,15 @@ v2.0 重写后在**源码版与剥离版两个服务上双跑**同一套门禁�
 >
 > 另：该实例 `public_ip` 字段为空（只有私网 IP），对外访问靠弹性公网 IP 映射；Workbench CLI 正是为此设计，见下一节。
 
+### 发布流程（六步，顺序固定）
+
+README 更新是流程的**第 0 步**，不是上线后的补记。理由很直接：README 首屏写着「当前发布版本」，如果先上线再补文档，中间那段时间线上一已是新版、文档还写着旧版；而一旦上线后被打断，这个不一致就会长期留着（v2.1 时就漏过一次）。
+
 ```bash
+# 0. 先把 README 改到位并过门禁（见下「README 门禁」）
+#    —— 首屏「当前发布版本」、发布记录表首行、进位说明、新特性描述
+python3 server-source/v2/check-readme.py --tag vX.Y --strict
+
 # 1. 本地构建发布包（剥 JS 注释 + 收齐七文件；输出目录即暂存区）
 python3 server-source/v2/build-release.py /tmp/typing-v2-build
 
@@ -385,15 +396,41 @@ python3 server-source/v2/build-release.py /tmp/typing-v2-build
 #    node server-source/v2/verify-strip.js http://127.0.0.1:<源码版端口> http://127.0.0.1:<剥离版端口>
 
 # 3. 打包传输（文件名用即将发布的版本号）
+#    前七份是发布产物；后两份是门禁材料，只供服务器校验，不进 public 静态目录
 tar -czf typing-practice-vX.Y.tar.gz -C /tmp/typing-v2-build \
-  index.html tokens.css app.css data.js motion.js app.js server.py
+  index.html tokens.css app.css data.js motion.js app.js server.py \
+  README.md check-readme.py
 
 # 4. 传到服务器独立暂存目录并校验哈希
 sha256sum /root/typing-release-xxxx/*
 
-# 5. 在维护窗口执行发布（root）
-bash deploy-v2.server.sh /root/typing-release-xxxx
+# 5. 在维护窗口执行发布（root；第二参数触发 README 门禁）
+bash deploy-v2.server.sh /root/typing-release-xxxx vX.Y
+
+# 6. 上线验证通过后，才算真正发版：
+#    a) 打 tag 并推送        git tag -a vX.Y -F <说明> && git push origin vX.Y
+#    b) 建 GitHub Release    tag 指向该版提交，正文用发布记录里的内容，
+#                            归档 tar.gz 作附件上传（不入库）
+#    c) 确认 latest 已转移   GET /repos/{o}/{r}/releases/latest → 应为 vX.Y
 ```
+
+### README 门禁
+
+`server-source/v2/check-readme.py` 把「文档是否与版本对齐」变成可执行检查，而不是靠自觉：
+
+```bash
+python3 server-source/v2/check-readme.py --tag vX.Y --strict
+```
+
+| 组 | 检查什么 |
+| --- | --- |
+| A 结构 | 代码围栏成对、每张表格列数一致、内部锚点都有对应标题 |
+| B 版本 | 首屏「当前发布版本」== 发布记录首行 == `--tag`；记录首行必须带 Release 链接 |
+| C 陈旧 | 进位说明指向「当前版本 +1」；首屏版本不自相矛盾；存在 `releases/latest` 入口 |
+
+`--strict` 下 WARN 也算失败。退出码非 0 就别往下走。实测五类典型滞后（首屏没改、代码块没闭合、表格列数错、进位说明没跟上、锚点写错）**每种都会被拦下**，没有漏网。
+
+> 为什么单独做成脚本而不是写在流程里让人看：这类不一致**不报错、不影响运行**，只靠人眼复核必然漏。v2.1 那次就是上线后才发现 README 还写着旧版本号，当时没有任何机制会提醒。
 
 ### 无公网 IP / 无 SSH 密钥时：Workbench CLI 通道（v2.2 起）
 
@@ -428,21 +465,26 @@ workbench exec -i i-xxxx --region cn-heyuan --timeout 120 -c "\
 workbench exec -i i-xxxx --region cn-heyuan --timeout 120 -c "\
   python3.11 /root/typing-deploy/src/*/server-source/v2/build-release.py /root/typing-deploy/v2-staging"
 
-# 然后正常发布
+# 然后正常发布（第二参数是版本号，触发 README 门禁）
 workbench exec -i i-xxxx --region cn-heyuan --timeout 180 -c "\
-  bash /root/typing-deploy/src/*/server-source/deploy-v2.server.sh /root/typing-deploy/v2-staging"
+  bash /root/typing-deploy/src/*/server-source/deploy-v2.server.sh /root/typing-deploy/v2-staging vX.Y"
 ```
+
+> 走这条通道时，`build-release.py` 会把 `README.md` 与 `check-readme.py` 一起放进暂存区，服务器上的门禁照样生效——文档没对齐 `vX.Y` 就拒绝切换符号链。
 
 > 两点注意：①`exec` 每次调用是**独立 shell**，`cd`/变量不跨调用保留，必须用 `&&`/`;` 串在一条命令里；②该实例活跃会话数有上限，连续调用若干次后会报「活跃会话数已达上限」，`workbench session list` 此时可能仍为空——等配额自然释放即可，不影响已完成的部署。
 
-`deploy-v2.server.sh` 的行为：
+`deploy-v2.server.sh` 的行为（传了 `version` 参数时含第 3.5 步门禁）：
 
 1. 校验暂存七文件齐全并打印哈希；
 2. 备份现有 `server.py` 与当前前端目录，对生产库做**在线 SQLite 快照**（`sqlite3.backup`，不中断服务、不覆盖生产库），记录发布前表数与成绩数；
 3. 布置 `public-v2/` 实体目录（逐文件 `.new` 暂存后 `mv` **原子替换**＋哈希校验）；首次执行时把当前前端留档为 `public-v1/`；
-4. 原子替换 `server.py`、清 `__pycache__`、重启服务，把 `public` 符号链切到 `public-v2`；
-5. 健康检查**逐文件**：200 ＋ 内容哈希 ＋ **gzip 必须生效**；另验首页 304 协商（同编码口径）、nginx 80、访客 API 401、发布前后表数与成绩数一致；
-6. 任一步失败触发 `trap` **自动回滚**：符号链指回旧目标 ＋ 还原 `server.py` 并重启。
+4. **README 门禁**（第 3.5 步，仅当传了 `version`）：若暂存区带 `check-readme.py` 与 `README.md`，跑 `--tag <version> --strict`；文档与版本不符直接 `die`，**在切换符号链之前拦下**。未带脚本时降级为「grep 首屏是否声明该版本」；
+5. 原子替换 `server.py`、清 `__pycache__`、重启服务，把 `public` 符号链切到 `public-v2`；
+6. 健康检查**逐文件**：200 ＋ 内容哈希 ＋ **gzip 必须生效**；另验首页 304 协商（同编码口径）、nginx 80、访客 API 401、发布前后表数与成绩数一致；
+7. 任一步失败触发 `trap` **自动回滚**：符号链指回旧目标 ＋ 还原 `server.py` 并重启。
+
+> 门禁放在第 3.5 步而不是最前面，是为了让它读的是**已原子布置好的 v2 目录**；放在切链之前，是为了保证「文档不合格 → 生产完全没被动过」，连 `server.py` 都还没换。
 
 备份目录形如 `/root/typing-backup/typing-v2-YYYYMMDD_HHMMSS`（含 `server.py`、前端目录与数据库快照）。**日常回滚只需一条命令**：
 
@@ -477,10 +519,13 @@ ln -sfn /root/typing-server/public-v1 /root/typing-server/public   # 秒级切�
 **发布约定：**
 
 1. 每次生产上线对应一个版本号，号只增不减、不复用；纯缺陷修复走三段补丁号，不占用功能号；
-2. Release 指向该次上线的实际提交，标签由 Release 自动创建，不单独手工打标签；
-3. 发布归档（`typing-practice-vX.Y[.Z].tar.gz`，仅三份源码）作为 **Release 附件**上传，不入仓库；
-4. 最新生产版本标记为 `latest`（补丁版上线后 `latest` 随之转移）；
-5. 改动功能后同步更新本 README 与下方版本表。
+2. **README 先于上线改到位**，并过 `check-readme.py --tag vX.Y --strict` 门禁——不允许「先上线再补文档」；
+3. Release 指向该次上线的实际提交，标签由 Release 自动创建，不单独手工打标签；
+4. 发布归档（`typing-practice-vX.Y[.Z].tar.gz`，仅三份源码）作为 **Release 附件**上传，不入仓库；
+5. 最新生产版本标记为 `latest`（补丁版上线后 `latest` 随之转移）；
+6. README 需同步更新：首屏「当前发布版本」、发布记录表新增首行（含该版 Release 链接）、进位说明、以及受影响的功能/部署章节。
+
+完整六步流程见[发布流程](#发布流程六步顺序固定)。
 
 > GitHub Release 在底层仍需一个 git tag 作为锚点，因此仓库中会存在 `v1.x` / `v1.x.y` 标签——它们是 Release 的载体，版本标识与下载入口统一以 Release 为准。
 

@@ -1,7 +1,8 @@
 #!/bin/bash
 # ============================================================
 #  v2.0 发布脚本（服务器上 root 执行）
-#  用法: bash deploy-v2.server.sh <stagingDir>
+#  用法: bash deploy-v2.server.sh <stagingDir> [version]
+#        例: bash deploy-v2.server.sh /root/typing-deploy/v2.2-staging v2.2
 #
 #  与 v1.x 的差别：
 #   1. 前端由单文件变为七文件（index.html + tokens.css + app.css
@@ -10,11 +11,17 @@
 #      回滚 = 重指符号链，秒级、无需重启服务。
 #   3. 数据库绝不覆盖；仅做在线 SQLite 快照备份。
 #
+#  传了 version 时（如 v2.2），会在切换符号链前多跑一道 README 门禁：
+#  若暂存区带 check-readme.py 与 README.md，则校验「首屏当前版本 == 本次
+#  发布版本」。不符直接 die —— 防止「代码上线了、文档还写着旧版本」。
+#  未传 version 则跳过该门禁（向后兼容）。
+#
 #  任何一步失败 → trap 自动把符号链指回旧版并退出非零。
 # ============================================================
 set -euo pipefail
 
-STAGING="${1:?用法: bash deploy-v2.server.sh <stagingDir>}"
+STAGING="${1:?用法: bash deploy-v2.server.sh <stagingDir> [version]}"
+VERSION="${2:-}"
 ROOT=/root/typing-server
 BACKUP=/root/typing-backup
 TS=$(date +%Y%m%d_%H%M%S)
@@ -111,6 +118,44 @@ for f in "${FRONT_FILES[@]}"; do
   [ "$A" = "$B" ] || die "哈希不一致: $f"
   echo "  OK $f  $A"
 done
+
+# ---------- 3.5 README 门禁（仅在显式传了 version 时） ----------
+# 目的：把「文档滞后」拦在切换符号链之前。文档不一致不报错、不影响运行，
+# 只靠人眼复核必然漏（v2.1 就漏过），所以放在这里硬拦。
+if [ -n "$VERSION" ]; then
+  README_CHK=""
+  for cand in "$STAGING/check-readme.py" "$STAGING/../check-readme.py" \
+              "$ROOT/check-readme.py"; do
+    [ -f "$cand" ] && { README_CHK="$cand"; break; }
+  done
+  README_MD=""
+  for cand in "$STAGING/README.md" "$STAGING/../README.md" "$ROOT/README.md"; do
+    [ -f "$cand" ] && { README_MD="$cand"; break; }
+  done
+
+  if [ -n "$README_CHK" ] && [ -n "$README_MD" ]; then
+    log "README 门禁：校验文档版本 == $VERSION"
+    PY=python3.11
+    command -v "$PY" >/dev/null 2>&1 || PY=python3
+    command -v "$PY" >/dev/null 2>&1 || PY=python
+    if "$PY" "$README_CHK" "$README_MD" --tag "$VERSION" --strict; then
+      log "README 门禁通过"
+    else
+      die "README 未对齐 $VERSION —— 拒绝上线。改完 README 重新构建再发。"
+    fi
+  else
+    log "README 门禁：暂存区未带 check-readme.py 或 README.md，跳过（仅校验版本号存在性）"
+    if grep -q "当前发布版本.*$VERSION" "$README_MD" 2>/dev/null; then
+      log "  首屏已声明 $VERSION"
+    elif [ -n "$README_MD" ]; then
+      die "README 首屏未声明 $VERSION —— 拒绝上线"
+    else
+      log "  未找到 README.md，无法校验（建议把 README 一并放进暂存区）"
+    fi
+  fi
+else
+  log "未指定 version 参数，跳过 README 门禁"
+fi
 
 # ---------- 4. 旧版留档为 public-v1 ----------
 V1DIR="$ROOT/public-v1"
