@@ -171,10 +171,17 @@ def init_db():
             ("lapses", "ALTER TABLE favorites ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0"),
             ("due_at", "ALTER TABLE favorites ADD COLUMN due_at INTEGER NOT NULL DEFAULT 0"),
             ("last_review", "ALTER TABLE favorites ADD COLUMN last_review INTEGER NOT NULL DEFAULT 0"),
+            # v2.3 错词回流：origin 区分「手动收藏」与「打错自动收录」。
+            # 默认 manual ⇒ 旧数据语义不变（历史上生词本只有手动收藏一种来源）。
+            ("origin", "ALTER TABLE favorites ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual'"),
+            # 累计打错次数。只增不减，作为「这个词反复出错」的证据，
+            # 不参与 SM-2 调度计算（调度仍由自评四档驱动）。
+            ("mistypes", "ALTER TABLE favorites ADD COLUMN mistypes INTEGER NOT NULL DEFAULT 0"),
         ):
             if col not in fcols:
                 c.execute(ddl)
         c.execute("CREATE INDEX IF NOT EXISTS idx_fav_due ON favorites(user_id, due_at)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_fav_origin ON favorites(user_id, origin)")
         # F2 错键热力图：按「应打字符」累计错误次数与总敲击次数，用于算错误率。
         # 只存单字符（含空格），不做任何文本内容留存。
         c.execute("""CREATE TABLE IF NOT EXISTS keyerrors(
@@ -678,11 +685,12 @@ def api_srs_get(user):
     now = int(time.time())
     with db() as c:
         rows = c.execute(
-            "SELECT word, ease, interval, reps, lapses, due_at, last_review "
+            "SELECT word, ease, interval, reps, lapses, due_at, last_review, origin, mistypes "
             "FROM favorites WHERE user_id=? ORDER BY due_at, word", (user["id"],)).fetchall()
     items = [{"word": r["word"], "ease": round(r["ease"], 3), "interval": round(r["interval"], 3),
               "reps": r["reps"], "lapses": r["lapses"], "due_at": r["due_at"],
-              "last_review": r["last_review"]} for r in rows]
+              "last_review": r["last_review"], "origin": r["origin"],
+              "mistypes": r["mistypes"]} for r in rows]
     due = [x["word"] for x in items if x["due_at"] <= now]
     return {"items": items, "due": due, "dueCount": len(due), "total": len(items), "now": now}
 
@@ -810,6 +818,71 @@ def api_favs_update(user, body):
         else:
             c.execute("DELETE FROM favorites WHERE user_id=? AND word=?", (user["id"], word))
     return {"ok": True}
+
+
+# ---------------- 错词回流 API（v2.3） ----------------
+
+# 词长上限与既有收藏接口一致；单次批量上限与错键上报的 128 项保持同一量级。
+FAV_MAX_WORD = 64
+MISTAKE_MAX_ITEMS = 64
+MISTAKE_MAX_COUNT = 10000
+
+
+def api_favs_mistakes(user, body):
+    """把练习中打错的词收进生词本，立即到期以便次日复习。
+
+    两条硬规则：
+      1. 新词才插入，origin='mistyped'、due_at=0（立即到期）。
+      2. 已在生词本里的词**只累加 mistypes**，绝不改动 ease/interval/reps/due_at——
+         用户可能已经复习过这个词，调度状态是他自己的学习进度，
+         不能因为又打错一次就被重置回起点。
+         origin 保持原值：手动收藏过的词不会因为打错而降级成 mistyped。
+    """
+    items = body.get("words")
+    if not isinstance(items, list):
+        raise ApiError("words 必须是数组", 400)
+    if len(items) > MISTAKE_MAX_ITEMS:
+        raise ApiError("单次最多上报 %d 个词" % MISTAKE_MAX_ITEMS, 400)
+
+    # 先在内存里归并同一批次的重复词，避免同一次练习里同一个词出现两次
+    # 导致两次 INSERT OR IGNORE 之间读不到刚插入的行。
+    merged = {}
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        word = it.get("word")
+        if not isinstance(word, str):
+            continue
+        word = word.strip()
+        if not word or len(word) > FAV_MAX_WORD:
+            continue
+        try:
+            n = int(it.get("mistakes") or 1)
+        except (TypeError, ValueError):
+            n = 1
+        n = max(1, min(n, MISTAKE_MAX_COUNT))
+        merged[word] = merged.get(word, 0) + n
+    if not merged:
+        return {"ok": True, "added": 0, "updated": 0}
+
+    now = int(time.time())
+    added = updated = 0
+    with db() as c:
+        for word, n in merged.items():
+            row = c.execute("SELECT mistypes FROM favorites WHERE user_id=? AND word=?",
+                            (user["id"], word)).fetchone()
+            if row:
+                c.execute("UPDATE favorites SET mistypes = mistypes + ? WHERE user_id=? AND word=?",
+                          (min(n, MISTAKE_MAX_COUNT), user["id"], word))
+                updated += 1
+            else:
+                # due_at=0 ⇒ 立即可复习，与 F4 的旧数据迁移口径一致。
+                c.execute(
+                    "INSERT OR IGNORE INTO favorites"
+                    "(user_id,word,created_at,due_at,origin,mistypes) VALUES(?,?,?,0,'mistyped',?)",
+                    (user["id"], word, now, min(n, MISTAKE_MAX_COUNT)))
+                added += 1
+    return {"ok": True, "added": added, "updated": updated}
 
 
 # ---------------- 个性化偏好 API（随账号同步） ----------------
@@ -1099,6 +1172,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(handle_post_records(self.read_json(), self.require_user()))
             if path == "/api/favs":
                 return self.send_json(api_favs_update(self.require_user(), self.read_json()))
+            if path == "/api/favs/mistakes":
+                return self.send_json(api_favs_mistakes(self.require_user(), self.read_json()))
             if path == "/api/prefs":
                 return self.send_json(api_prefs_put(self.require_user(), self.read_json()))
             if path == "/api/srs/review":

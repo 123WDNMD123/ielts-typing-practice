@@ -298,6 +298,23 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
 .nb-srs.due{background:var(--err-soft);color:var(--err)}
 .nb-srs.later{background:var(--primary-soft);color:var(--primary)}
 .nb-srs.fresh{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+/* v2.3 错词回流：来源筛选分段 + 「打错」标记。
+   视觉与 .library-filter 对齐（未选中透明底，选中 primary-soft 填底 + border 描边），
+   同一个「分段选择」概念不造第二套样式；描边用 --border 而非 --primary，
+   因为这里只是选中态、不是强调态，用主色描边会让工具条整体偏重。 */
+.nb-filter{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap;
+  border:1px solid var(--border);border-radius:20px;background:var(--surface);padding:3px}
+.nb-filter button{border:1px solid transparent;background:none;color:var(--muted);
+  border-radius:20px;padding:5px 11px;font-size:12px;font-weight:650;cursor:pointer;min-height:32px;
+  transition:border-color .16s,background .16s,color .16s}
+.nb-filter button:hover{border-color:var(--border);color:var(--text)}
+.nb-filter button.active{background:var(--primary-soft);color:var(--text);border-color:var(--border)}
+.nb-filter button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+/* 「打错」标记刻意用弱色而非警示色：这是来路说明，不是错误状态。
+   用 --err 会让整页生词看起来都在报错，与实际语义不符。 */
+.nb-origin{display:inline-block;border-radius:20px;font-size:10px;font-weight:700;
+  padding:2px 7px;margin-left:6px;vertical-align:middle;
+  background:var(--surface);color:var(--muted);border:1px dashed var(--border)}
 .srs-grade{gap:6px}
 .srs-grade .btn{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:74px;padding:6px 10px;font-size:12px}
 .srs-grade .btn small{font-size:10px;font-weight:500;opacity:.8}.review-card{text-align:center;min-height:175px;display:grid;place-content:center;gap:7px}.review-card.flipped{background:var(--primary-soft)}.review-progress,.review-hint,.nb-count{color:var(--muted);text-align:center;margin:10px 0}.review-actions{margin-top:12px}.test-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.setting-field{display:grid;gap:4px}.test-actions{margin-top:16px}.test-guide p{margin-top:5px}

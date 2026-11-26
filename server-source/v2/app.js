@@ -3238,6 +3238,15 @@ async function renderClass(){
 /* ===== 日常练习 ===== */
 function shuffle(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; } return r; }
 const D = { list:[], idx:0, pos:0, errors:0, correct:0, startedAt:null, skipped:0, busy:false, spans:[] };
+/* v2.3 错词回流：本轮练习中「打错过」的词 → 打错次数。
+   只在「日常练习」采集 —— 这里打的是单个单词，词边界确定；
+   速度测试/分级课程打的是整篇文章，按空格切出的多是片段，硬收会污染生词本。
+   口径：一个词只要本轮出现过错误就记 1 次（同一词重复打错才累加），
+   而不是按字符错误累计 —— 后者会把一次手滑放大成很重的权重。 */
+let dailyMistakes = new Map();
+/* 本轮已出错过的词（Set 去重）。与 dailyMistakes 分工：
+   marked 记「本轮这个词错过」，mistakes 记「这个词本轮打错并已完成」的次数。 */
+let dailyMistakeMarked = new Set();
 let cardTimer = null;
 const WORD_CARD_MS = 3500;
 /* 每日练习三视图：Tab 与面板成对，恰有一个 active / 恰有一个不隐藏。
@@ -3258,7 +3267,15 @@ function dailyView(view){
     document.getElementById(tabId).classList.toggle('active', key === v);
     document.getElementById(paneId).classList.toggle('hidden', key !== v);
   });
-  if(v==='notebook') renderNotebook();
+  if(v==='notebook'){
+    renderNotebook();   // 先用本地缓存出画面，不阻塞首屏
+    /* v2.3：来源标记与「打错的」筛选都依赖 SRS 里的 origin。
+       若尚未加载，补一次拉取后重渲染；失败则保持无标记状态（不报错、不清空）。
+       renderNotebook 内部会吞掉缺失的 origin（按 manual 处理），不会出现空列表。 */
+    if(currentUser && !srsLoaded){
+      srsLoad().then(()=>{ if(lastDailyView==='notebook') renderNotebook(); });
+    }
+  }
   if(v==='keys'){
     // 进入复盘页先落盘尚未上报的增量，再拉最新统计（跨设备也能看到刚练的结果）
     keyErrFlush();
@@ -3330,6 +3347,13 @@ function startDaily(){
   lastDailyResult = null;
   showDailySaveTip(false);
   D.idx = 0; D.errors = 0; D.correct = 0; D.startedAt = null; D.skipped = 0; D.busy = false;
+  /* 新一轮开始前，把上一轮残留的错词交出去。
+     正常路径下结算已上报、此处为空；但用户可能在一轮没打完时按「再来一轮」，
+     那些已打完且打错的词不该因为中途重开而丢掉。
+     注意：这里**不能**紧跟一句 dailyMistakes = new Map() —— 上报失败时函数会
+     把本批回填进 dailyMistakes，那句清空会把回填一并抹掉，等于静默丢数据。
+     清空由 pushDailyMistakes 自身负责（成功不可回滚、失败回填）。 */
+  pushDailyMistakes();
   document.getElementById('dailyTip').textContent = D.topicLabel + ' · 本轮 ' + D.list.length + ' 词。输入单词，听发音，难词可加入生词本';
   renderDailyWord();
   document.getElementById('dailyArea').focus();
@@ -3391,15 +3415,26 @@ function dailyChar(ch){
     if(spans[D.pos-1]){ spans[D.pos-1].classList.add('done-ok'); spans[D.pos-1].classList.remove('done-err'); }
     if(D.pos >= item.w.length){
       D.busy = true;
+      dailyMarkWord(item.w);
       updateDailyStats();
       showWordCard(item);
     }
   } else {
     D.errors++;
+    /* 本轮该词首次出错就打标记：mark 放在「首次」而非每次，保证按「是否出错」
+       计数而不是按字符错误数 —— 一个词错了 5 个字母只算 1 次。 */
+    if(!dailyMistakeMarked.has(item.w)) dailyMistakeMarked.add(item.w);
     const sp = spans[D.pos];
     if(sp && !sp.classList.contains('done-err')){ sp.classList.add('done-err'); }
   }
   updateDailyStats();
+}
+/* 单词完成时结算：本轮该词出过错才计入会话错词表。
+   放在完成时刻而不是出错时刻：中途放弃（换轮/退出）的词不算 —— 没打完就不该
+   断定「这个词你不会」，避免误收。 */
+function dailyMarkWord(word){
+  if(!dailyMistakeMarked.has(word)) return;
+  dailyMistakes.set(word, (dailyMistakes.get(word) || 0) + 1);
 }
 function dailyKeydown(e){
   // 每日单词没有 Esc 退出语义（Esc 由全局对话框层处理），故不传 escape
@@ -3494,6 +3529,46 @@ function continueAfterCard(){
   dailyNext();
 }
 let lastDailyResult = null;
+/* v2.3 错词回流：把本轮打错的词交给服务端收进生词本。
+   设计约束：
+     · 未登录不上报 —— 生词本属于账号，访客没有可写入的地方；
+     · 失败静默 —— 错词回流是「顺带变好」的能力，不该因为网络问题弹错误
+       打断结算；下次练习仍会再收集，不会丢数据；
+     · 上报后立刻清空，防同一轮重复上报（结算页重试成绩时不会重复提交错词）。 */
+async function pushDailyMistakes(){
+  if(!currentUser) return;
+  if(!dailyMistakes.size) return;
+  const words = [...dailyMistakes].map(([word, mistakes]) => ({ word, mistakes }));
+  dailyMistakes = new Map();
+  dailyMistakeMarked = new Set();
+  /* 失败回填：把本批还回去，下一次上报（下一轮结算或重开）会连同新词一起补交。
+     不能只依赖「下次再收集」——那批词已经打完了，不会再出现第二次。
+     只回填计数、不回填 marked：marked 是「本轮是否出错」的判定依据，
+     若把上一轮的标记带进新一轮，同一个词在新一轮即使全对也会被误算成打错。 */
+  const rollback = () => {
+    for(const { word, mistakes } of words){
+      dailyMistakes.set(word, (dailyMistakes.get(word) || 0) + mistakes);
+    }
+  };
+  try{
+    const r = await fetch('/api/favs/mistakes', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ words })
+    });
+    if(!r.ok){ rollback(); return; }
+    const j = await r.json().catch(() => null);
+    // 新收进生词本的词要同步到本地副本，否则生词本列表与收藏按钮状态不一致
+    if(j && j.added){
+      const favs = getDailyFavs();
+      let changed = false;
+      words.forEach(({ word }) => { if(!favs.includes(word)){ favs.push(word); changed = true; } });
+      if(changed){ setDailyFavs(favs); favButtonSync('dFav'); }
+    }
+    srsLoaded = false;   // 调度状态已变化，下次进复习面板重新拉取
+  }catch(e){
+    rollback();          // 网络异常同样回填，静默不打断结算
+  }
+}
 async function showDailySummary(){
   dailyCardReset();
   // 结算页与输入区互斥：两者都隐藏，只留 summary
@@ -3513,10 +3588,18 @@ async function showDailySummary(){
   countUp('dsErr', D.errors, 'base');
   countUp('dsSkip', D.skipped, 'base');
   countUp('dsTime', secs, 'base', 's');
-  document.getElementById('dailyTip').textContent = '练习完成！WPM ' + wpm + ' · 准确率 ' + acc + '% · 跳过 ' + D.skipped + ' 个。点击"再来一轮"继续。';
+  /* 提示文案：有错词时明确告知已收进生词本。这条必须写在界面上 ——
+     否则「打错的词会自动进生词本」是隐形的，用户不会知道去复习。 */
+  const tipBase = '练习完成！WPM ' + wpm + ' · 准确率 ' + acc + '% · 跳过 ' + D.skipped + ' 个。';
+  const tipMistake = dailyMistakes.size
+    ? '本轮 ' + dailyMistakes.size + ' 个打错的词已收进生词本，可去「生词本」复习。'
+    : '';
+  document.getElementById('dailyTip').textContent = tipBase + (tipMistake || '点击"再来一轮"继续。');
   showRecordBadge('dsRecord', checkPersonalBest(wpm));
   if(wpm && D.correct) StudioSound.complete();
   launchConfetti();
+  // 错词回流：与成绩保存并行，不等待、不阻塞结算展示。
+  pushDailyMistakes();
   // 保存成绩，失败时给出明显红字提示并允许重试
   const rec = { t:Date.now(), student:getStudent(), label:'日常练习', material:(D.topicLabel || '全部核心词') + ' × ' + total, wpm, acc, chars:D.correct, errs:D.errors, secs };
   D.list = [];
@@ -3734,23 +3817,61 @@ document.getElementById('nbList').addEventListener('click', e => {
   else if(btn.dataset.act === 'lookup') notebookLookup(w);
   else if(btn.dataset.act === 'remove') notebookRemove(w);
 });
+/* v2.3 错词回流：生词本来源筛选。'all' | 'mistyped' | 'manual'。
+   纯视图状态，不写偏好、不同步服务端 —— 它只是一次浏览时的临时视角。 */
+let nbOriginFilter = 'all';
+function notebookFilter(origin){
+  nbOriginFilter = (origin==='mistyped' || origin==='manual') ? origin : 'all';
+  document.querySelectorAll('#nbFilter button').forEach(b=>{
+    const on = b.dataset.origin === nbOriginFilter;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  renderNotebook();
+}
+/* 来源标记：只在「打错的」那一类上显示，手动收藏不加标记 ——
+   手动收藏是用户自己的动作，不需要再解释；自动收录的才需要说明来路。 */
+function notebookOriginTag(rec){
+  if(!rec || rec.origin !== 'mistyped') return '';
+  const n = rec.mistypes || 0;
+  return '<span class="nb-origin" title="练习时打错，自动收录">打错' +
+         (n > 1 ? ' ×' + n : '') + '</span>';
+}
 function renderNotebook(){
   const list = document.getElementById('nbList');
   const favs = getDailyFavs();
   const q = document.getElementById('nbSearch').value.trim().toLowerCase();
-  const filtered = favs.filter(w=>!q || w.toLowerCase().includes(q));
-  document.getElementById('nbCount').textContent = favs.length ? '共 ' + favs.length + ' 个' : '';
+  const sm = srsLoaded ? srsMap() : {};
+  /* 来源筛选依赖 SRS 数据里的 origin。数据未到位时不做筛选、也不假装筛过 ——
+     否则「打错的」会显示成全部词，用户会以为筛选坏了。这种情况下面板只在
+     文案里说明，等 srsLoad 完成后的重渲染再真正生效。 */
+  const originReady = srsLoaded;
+  const byOrigin = w => {
+    if(nbOriginFilter === 'all' || !originReady) return true;
+    const rec = sm[w];
+    if(!rec) return true;              // 未知来源不隐藏，避免误判为空
+    return (rec.origin || 'manual') === nbOriginFilter;
+  };
+  const filtered = favs.filter(w => (!q || w.toLowerCase().includes(q)) && byOrigin(w));
+  /* 计数：总数始终给全部，筛选时另给命中数，避免用户以为词丢了。 */
+  const baseCount = favs.length ? '共 ' + favs.length + ' 个' : '';
+  const filterCount = (nbOriginFilter !== 'all' && favs.length)
+    ? (originReady ? ' · 当前筛选 ' + filtered.length + ' 个' : ' · 正在加载来源…') : '';
+  document.getElementById('nbCount').textContent = baseCount + filterCount;
   if(!filtered.length){
-    list.innerHTML = '<div class="empty-tip">' + (favs.length ? '没有匹配的单词' : '还没有收藏单词，去「日常练习」点“收藏”吧') + '</div>';
+    const tip = favs.length
+      ? (nbOriginFilter !== 'all' ? '这一类还没有单词' : '没有匹配的单词')
+      : '还没有收藏单词。日常练习里打错的词会自动收进来，也可以点“收藏”手动加入';
+    list.innerHTML = '<div class="empty-tip">' + tip + '</div>';
     return;
   }
-  const sm = srsLoaded ? srsMap() : {};
   // 单次渲染统一时间基准，避免同屏不同词用不同秒数判定到期。
   // 注意 srsFmtLeft 内部自取 srsNow()，格式化口径与 v1.8 一致，不受此影响。
   const now = srsNow();
   list.innerHTML = filtered.map(w=>{
     const item = DAILY_MAP[w] || {p:'', d:''};
-    return notebookItemHTML(w, item, notebookSrsTag(sm[w], now));
+    const rec = sm[w];
+    return notebookItemHTML(w, item, notebookSrsTag(rec, now) + notebookOriginTag(rec));
   }).join('');
   playIn(list, '.nb-item', { dy: 6 });
   srsRenderBadge();

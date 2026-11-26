@@ -392,6 +392,12 @@
         </div>
         <div class="nb-toolbar" id="nbToolbar">
           <input id="nbSearch" placeholder="搜索收藏的单词" oninput="renderNotebook()">
+          <!-- v2.3 错词回流：按来源筛选。三个分段互斥，选择只作用于渲染，不改数据。 -->
+          <div class="nb-filter" id="nbFilter" role="group" aria-label="按来源筛选生词">
+            <button type="button" class="active" data-origin="all" onclick="notebookFilter('all')">全部</button>
+            <button type="button" data-origin="mistyped" onclick="notebookFilter('mistyped')">打错的</button>
+            <button type="button" data-origin="manual" onclick="notebookFilter('manual')">手动收藏</button>
+          </div>
           <button class="btn ghost" onclick="renderNotebook()">刷新</button>
           <button class="btn" onclick="startReview()">背单词</button>
           <button class="btn warn" onclick="notebookClear()">清空生词本</button>
