@@ -380,6 +380,46 @@ sha256sum /root/typing-release-xxxx/*
 bash deploy-v2.server.sh /root/typing-release-xxxx
 ```
 
+### 无公网 IP / 无 SSH 密钥时：Workbench CLI 通道（v2.2 起）
+
+该实例 `public_ip` 为空、本机也没有 SSH 私钥，走阿里云 **Workbench CLI**：AK/SK 鉴权 + `instance-id`，经云助手通道执行，不需要公网 IP，也不需要密码。
+
+```bash
+# 安装（Windows 官方脚本有个 bug：注释说普通用户装到 %LOCALAPPDATA%，
+# 代码却无条件用 $env:ProgramFiles，非管理员必然 PermissionDenied。
+# 手动装到用户目录即可，再把它加进用户级 PATH）
+curl -sSL -o wb.zip https://workbench-cli.oss-cn-hangzhou.aliyuncs.com/latest/workbench-windows-amd64.zip
+curl -sSL -o wb.sha256 https://workbench-cli.oss-cn-hangzhou.aliyuncs.com/latest/checksums.sha256
+sha256sum wb.zip   # 必须与 checksums.sha256 中 workbench-windows-amd64.zip 一行一致
+# 解压后把 workbench.exe 放到 %LOCALAPPDATA%\Programs\workbench\，该目录加入用户 PATH
+
+# 凭据（0600）：%USERPROFILE%\.workbench\config.json
+# { "current":"default", "profiles":{ "default":{ "mode":"AK",
+#   "access_key_id":"...", "access_key_secret":"..." } } }
+
+workbench list ecs --region cn-heyuan            # 找 instance-id（本机实例 public_ip 为空属正常）
+workbench exec -i i-xxxx --region cn-heyuan -c "uname -a"
+```
+
+**注意 `workbench upload` 会失败**：它经 OSS 中继，本机 DNS 解析 `cn-cn-heyuan-fileuploaddownload.oss-...` 超时。既然 `exec` 可用且服务器能直连 GitHub，改为**让服务器自己拉**：
+
+```bash
+workbench exec -i i-xxxx --region cn-heyuan --timeout 120 -c "\
+  cd /root/typing-deploy && rm -rf src && mkdir -p src && \
+  curl -sSL -o repo.tar.gz https://codeload.github.com/123WDNMD123/ielts-typing-practice/tar.gz/<commit> && \
+  tar -xzf repo.tar.gz -C src"
+
+# 仓库里是源码版，部署要剥离版 —— 在服务器上跑同一个构建脚本
+workbench exec -i i-xxxx --region cn-heyuan --timeout 120 -c "\
+  python3.11 /root/typing-deploy/src/*/server-source/v2/build-release.py /root/typing-deploy/v2-staging"
+
+# 然后正常发布
+workbench exec -i i-xxxx --region cn-heyuan --timeout 180 -c "\
+  bash /root/typing-deploy/src/*/server-source/deploy-v2.server.sh /root/typing-deploy/v2-staging"
+```
+
+> 两点注意：①`exec` 每次调用是**独立 shell**，`cd`/变量不跨调用保留，必须用 `&&`/`;` 串在一条命令里；②该实例活跃会话数有上限，连续调用若干次后会报「活跃会话数已达上限」，`workbench session list` 此时可能仍为空——等配额自然释放即可，不影响已完成的部署。
+
 `deploy-v2.server.sh` 的行为：
 
 1. 校验暂存七文件齐全并打印哈希；
@@ -433,7 +473,7 @@ ln -sfn /root/typing-server/public-v1 /root/typing-server/public   # 秒级切�
 
 | 版本 | 上线时间 | 内容 |
 | --- | --- | --- |
-| **v2.2** | 11-26 | **动画层全面重构（令牌单一真源 + 动效贯穿全站）**：三件事。<br>①**令牌单一真源**：`tokens.css` 成为唯一来源，`motion.js` 启动时读 CSS 变量（`--motion-base-*` 原值 / `--ease*`），JS 里那份字面量降级为兜底。此前 CSS 与 JS 各写一份 180/320/500 靠注释维系，v2.1 的 lite 档就只改了 CSS 没改 JS。lite 档改 `calc()` 派生（不再手写减半值，杜绝双倍减半）。<br>②**动效贯穿**：`enter`/`leave`/`staggerEnter`/`setBackdropBlur` 此前调用数为 **0**。新增 `playIn()` 统一入口——渲染只标记、**元素真正可见时才播**（CSS 动画不等可见，页面 hidden 时渲染完动画早已跑完，这是「接了却没效果」的隐性原因）；配 `IntersectionObserver`，首屏外项滚入才播。铺到语料库/文章列表/生词本/成绩统计卡/全班记录/后台表格/各 Tab 首访内容，长列表延迟封顶 8×step 防拖尾。<br>③**景深虚化**：专注镜头接入 `backdrop-filter` 预模糊层，背景退到焦外（红线权衡见「性能约束」）。<br>**顺带归并脱钩的 CSS**：装饰循环周期全部令牌化（`--cycle-*`）；`badgeIn` 去过冲回弹、`chPop` 改「从略小回正」、`appear` 从 micro 提到 base 且位移对齐 8px；`ds-cell` 错峰序列改 `--stagger-step` 等差（原混用 tap/micro/base，与引擎 STAGGER 无关）。<br>**验证**：38 项验收门禁全通过（令牌一致性/三档降级/核心流程/错峰实证/景深与红线/三视口无溢出），核心流程与 v2.1 基线逐字段比对无行为漂移（仅随机选文与新增 API 计数不同），`errors` 为空 |
+| [**v2.2**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v2.2) | 11-26 23:33 | **动画层全面重构（令牌单一真源 + 动效贯穿全站）**：三件事。<br>①**令牌单一真源**：`tokens.css` 成为唯一来源，`motion.js` 启动时读 CSS 变量（`--motion-base-*` 原值 / `--ease*`），JS 里那份字面量降级为兜底。此前 CSS 与 JS 各写一份 180/320/500 靠注释维系，v2.1 的 lite 档就只改了 CSS 没改 JS。lite 档改 `calc()` 派生（不再手写减半值，杜绝双倍减半）。<br>②**动效贯穿**：`enter`/`leave`/`staggerEnter`/`setBackdropBlur` 此前调用数为 **0**。新增 `playIn()` 统一入口——渲染只标记、**元素真正可见时才播**（CSS 动画不等可见，页面 hidden 时渲染完动画早已跑完，这是「接了却没效果」的隐性原因）；配 `IntersectionObserver`，首屏外项滚入才播。铺到语料库/文章列表/生词本/成绩统计卡/全班记录/后台表格/各 Tab 首访内容，长列表延迟封顶 8×step 防拖尾。<br>③**景深虚化**：专注镜头接入 `backdrop-filter` 预模糊层，背景退到焦外（红线权衡见「性能约束」）。<br>**顺带归并脱钩的 CSS**：装饰循环周期全部令牌化（`--cycle-*`）；`badgeIn` 去过冲回弹、`chPop` 改「从略小回正」、`appear` 从 micro 提到 base 且位移对齐 8px；`ds-cell` 错峰序列改 `--stagger-step` 等差（原混用 tap/micro/base，与引擎 STAGGER 无关）。<br>**验证**：38 项验收门禁全通过（令牌一致性/三档降级/核心流程/错峰实证/景深与红线/三视口无溢出），核心流程与 v2.1 基线逐字段比对无行为漂移（仅随机选文与新增 API 计数不同），`errors` 为空。<br>**上线实证**：deploy 脚本 9 项健康检查全过（逐文件 200＋哈希＋gzip、首页 304、nginx 80、访客 401），数据库 7 表 / 3 条成绩发布前后一致；公网拉取 7 文件哈希与归档逐字节相同；线上浏览器 33 项断言全通过（引擎 37 API、BEAT/BACK 已导出、原值层四枚令牌 CSS==JS、三档 180/320/500 与 lite 160、景深层注入、三视口零溢出） |
 | [**v2.1**](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v2.1) | 11-26 | **全站页面转场统一（手机应用式）**：新增 `pageCross` 双页交叉通道（栏目切换/课程菜单↔文章列表/每日三分段，旧页脱流反向淡出 0.45D＋新页错峰方向淡入，前进后退互逆）；设置页与分享卡走 `sheetIn/sheetOut` 从入口方向展开/收回（0.72D 互逆呼应，移动端按实际几何切底部抽屉语义）；结算/登录/改密弹窗统一 `modalIn/modalOut` 同节奏开合，登录弹窗关闭动画时长不同步的残留问题一并消除。每通道代际号防连切竞态（取消＋钉终值＋补隐藏被中断的退场页），页面转场按父容器分作用域互不误杀；清理与 WAAPI 叠加的 CSS `popIn/authOut/springUp/drawerSpring` 动画。布局与导航逻辑不变：20 条路径行为基线回放 0 差异，新增 36 项转场门禁（连切无残留/开合互逆/三路同一出口/三档动效/双视口/帧率）全通过 |
 | [v2.0](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v2.0) | 11-26 | **前端整体重写（表现层架构版）**：单文件拆为六文件（结构/令牌/样式/语料/动画引擎/业务），十个功能域全部重新实现，功能行为与 v1.8 完全等价（20 条路径行为基线回放 ＋ 约 715 项专项断言 ＋ 曲线 18 用例像素级比对，新旧双版全通过）。**统一动画引擎**：FLIP 翻牌机制移植（飞行克隆层＋三层错峰＋预模糊双层），全站统一 `cubic-bezier(0.32,0.72,0,1)` 缓动与三档时长（180/320/500ms），CSS/WAAPI/rAF 三通道共用同一时间源；专注镜头保留逐帧通道（打字区/曲线物理上不可克隆）。**双版本并存发布**：`public-v1`/`public-v2` 实体目录＋符号链切换，回滚秒级无需重启；gzip 白名单改按扩展名判定＋realpath 归一（符号链下逐文件实测生效）。**顺带修复五处 v1.8 遗留缺陷**（均先在旧版逐键/最小复现取证）：①不限时模式打完最后一字符抛 TypeError、结算弹窗永不出现（光标高亮未守 pos 越界，影响最大）；②生词本三按钮 onclick 注入（含 `'` 词条全部失效、含 `\` 词条移除静默失败）；③管理表格同类注入；④登录弹窗关闭动画多挂 50ms；⑤主题切换过渡类多挂 100ms（④⑤均为 JS 硬编码时长与 CSS 令牌脱钩，改从引擎读同一时间源）。设计令牌值不变，视觉与 v1.8 一致 |
 | [v1.8](https://github.com/123WDNMD123/ielts-typing-practice/releases/tag/v1.8) | 11-26 14:30 | **错键热力图（F2）**：按应打字符累计错误率、键盘分档着色、指法/热力两视图互斥、小样本不着色、节流批量上报、每日页错键分析分段；**间隔重复复习（F4）**：简化 SM-2 排程、到期徽标与只复习到期词、四档自评＋间隔预览、进度重置，与普通背单词两档模式互不干扰；**音标缺字修复**：内嵌 StudioPhonetic woff2（约 7.3KB base64），四处音标跨平台零缺字，打字区等宽对齐不变。新增 `keyerrors` 表与 `favorites` 六个调度列（幂等迁移，旧收藏立即到期）、6 条 API |
