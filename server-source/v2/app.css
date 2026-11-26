@@ -44,9 +44,9 @@ label{font-size:13px;color:var(--muted)}input::placeholder{color:var(--muted);op
 .motion-fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:130}
 /* 高级感视效：环境流光背景 / 细噪点 / 卡片悬停辉光 / 标题渐变流光（仅 full，off 全静） */
 .ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}.ambient-bg i{position:absolute;border-radius:50%;will-change:transform;background:radial-gradient(circle at 35% 35%,color-mix(in srgb,var(--primary) 26%,transparent),transparent 68%)}.ambient-bg i:nth-child(1){width:54vmax;height:54vmax;top:-20vmax;left:-14vmax}.ambient-bg i:nth-child(2){width:46vmax;height:46vmax;bottom:-18vmax;right:-12vmax;background:radial-gradient(circle at 60% 40%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 68%)}.ambient-bg i:nth-child(3){width:34vmax;height:34vmax;top:32%;left:56%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--ok) 14%,transparent),transparent 70%)}
-html[data-motion="full"] .ambient-bg i{animation:ambA 34s ease-in-out infinite alternate}
-html[data-motion="full"] .ambient-bg i:nth-child(2){animation:ambB 41s ease-in-out infinite alternate}
-html[data-motion="full"] .ambient-bg i:nth-child(3){animation:ambC 47s ease-in-out infinite alternate}
+html[data-motion="full"] .ambient-bg i{animation:ambA var(--cycle-amb-1) var(--ease-inout) infinite alternate}
+html[data-motion="full"] .ambient-bg i:nth-child(2){animation:ambB var(--cycle-amb-2) var(--ease-inout) infinite alternate}
+html[data-motion="full"] .ambient-bg i:nth-child(3){animation:ambC var(--cycle-amb-3) var(--ease-inout) infinite alternate}
 @keyframes ambA{from{transform:translate3d(0,0,0)}to{transform:translate3d(9vmax,6vmax,0)}}
 @keyframes ambB{from{transform:translate3d(0,0,0)}to{transform:translate3d(-8vmax,-5vmax,0)}}
 @keyframes ambC{from{transform:translate3d(0,0,0)}to{transform:translate3d(-6vmax,7vmax,0)}}
@@ -58,7 +58,7 @@ html[data-motion="off"] .grain{display:none}
 html[data-motion="full"] .card,html[data-motion="full"] .path-step,html[data-motion="full"] .lvl-btn,html[data-motion="full"] .passage-item{transition:transform var(--dur-micro) var(--ease),box-shadow var(--dur-micro) var(--ease),border-color var(--dur-micro) var(--ease)}
 html[data-motion="full"] .card:hover{border-color:var(--primary-edge);box-shadow:0 12px 32px var(--primary-glow)}
 html[data-motion="full"] .path-step:hover,html[data-motion="full"] .lvl-btn:hover,html[data-motion="full"] .passage-item:hover{transform:translateY(-2px);box-shadow:0 10px 26px var(--primary-glow)}
-html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(--text) 30%,color-mix(in srgb,var(--primary) 72%,var(--text)) 50%,var(--text) 70%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h1sheen 2.8s ease-in-out 1 both}
+html[data-motion="full"] .page-heading h1{background:linear-gradient(100deg,var(--text) 30%,color-mix(in srgb,var(--primary) 72%,var(--text)) 50%,var(--text) 70%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:h1sheen var(--cycle-sheen) var(--ease-inout) 1 both}
 @keyframes h1sheen{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
 @media(max-width:650px){.ambient-bg i:nth-child(3){display:none}.grain{opacity:.04}}
 @supports not (color:color-mix(in srgb,red 50%,blue)){.ambient-bg{display:none}.sidebar{background:var(--card)}}
@@ -117,6 +117,57 @@ html.focus-dolly #typingSection{position:fixed;inset:0;z-index:55;margin:0;paddi
 html.focus-dolly #typingSection>.typing-card{pointer-events:auto}
 /* 镜头外的其余内容整体淡出/淡入，避免卡片飞过时背后页面「跳」一下 */
 html.focus-dolly .studio-footer{opacity:0}
+
+/* ===== 景深：专注镜头的预模糊双层（v2.2）=====
+   镜头推近时，被淡出的背景退到焦外 —— demo 里图标展开为全屏时纵深感的主要来源。
+
+   性能红线权衡（README「性能约束」三条都踩到边界，逐条说明为何仍合规）：
+   ① 「大尺寸常驻动画元素不使用 blur 滤镜」
+      → 本层不常驻：只在 html.focus-dolly 期间存在，退出镜头随类消失。
+      → blur 半径**恒定不变**，全程只改 opacity。改变半径才会触发每帧重算模糊。
+   ② 「backdrop-filter 不与常驻动画同屏」← 本方案的关键约束
+      → 镜头里 ambient-bg 的光斑循环本来在跑（ambA/B/C 三个 34/41/47s 的
+        translate 循环）。与 backdrop-filter 同屏会让浏览器每帧重算整屏模糊。
+      → 解法：镜头期间停掉光斑循环（见文件末尾的 animation:none 规则）。
+        硬账：光斑此刻正被逐帧淡出，停下它视觉上几乎不可察觉，
+        却把「每帧重算模糊」降为「一次预模糊 + 只切 opacity」。
+      → 用 animation:none 而非 animation-play-state:paused：
+        paused 仍保留合成层与滤镜上下文，none 才是真正退出动画。
+   ③ 「常驻动画只动 transform」
+      → 本层只动 opacity，不参与任何几何动画。
+
+   z-index 取 0：压在 ambient-bg(0) 之上、.main(1) 之下 ——
+   于是它采集的是「背景」而不是「卡片自己」，不会把打字卡也糊掉。 */
+/* 显隐由「专注档位」驱动，不由 focus-dolly 驱动 ——
+   focus-dolly 只是**飞行期间**的临时类（落定即摘），拿它做常驻层选择器会导致
+   落定瞬间层失效（实测：飞行中有、落定后 bf=none、z-index=auto）。
+   真正的档位类是 focus-half / focus-full（由 focusRootLevel 维持）。 */
+#focusDolly{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  display:none;                 /* 非专注态完全不参与渲染 */
+  /* 静态滤镜：整个镜头期间这几个值一个字都不改 */
+  backdrop-filter:blur(14px) saturate(1.15) brightness(.9);
+  -webkit-backdrop-filter:blur(14px) saturate(1.15) brightness(.9);
+  opacity:0;
+  will-change:opacity;
+  transform:translateZ(0);
+}
+html.focus-half #focusDolly,html.focus-full #focusDolly{display:block}
+/* 落定后的静态值：必须与 focusDolly 飞行末帧写入的一致，
+   否则清内联的那一帧会「跳」一下（这是 v1.7.2 反面教训二第 4 条的同类坑）。
+   JS 侧 depthTo = 1档 0.55 / 2档 0.7，此处逐档对齐。 */
+html.focus-half #focusDolly{opacity:.55}
+html.focus-full #focusDolly{opacity:.7}
+/* 全屏（2 档）背景已淡到近黑，虚化幅度减弱 —— 全屏要的是「静」不是「糊」 */
+html.focus-full #focusDolly.depth-full{
+  backdrop-filter:blur(8px) saturate(1.08) brightness(.82);
+  -webkit-backdrop-filter:blur(8px) saturate(1.08) brightness(.82);
+}
+/* off 档：根本不进镜头，层也不该出现（防御性兜底） */
+html[data-motion="off"] #focusDolly{display:none}
 /* 非飞行态的环境过渡（lite 档与 0→1 的兜底）；full 档飞行时由下面的 none 接管 */
 html[data-motion="full"] .sidebar{transition:transform var(--dur-base) var(--ease),visibility var(--dur-base) var(--ease)}
 html[data-motion="full"] .main{transition:margin-left var(--dur-base) var(--ease)}
@@ -136,6 +187,16 @@ html.focus-dolly[data-motion] .page-heading,html.focus-dolly[data-motion] .studi
 html.focus-dolly[data-motion] .ambient-bg i,html.focus-dolly[data-motion] #keyboard,
 html.focus-dolly[data-motion] .studio-footer{transition:none}
 html.focus-dolly[data-motion] #focusCapsule,html.focus-dolly[data-motion] #focusExit{animation:none;transition:none}
+/* 景深期间停掉光斑循环：backdrop-filter 与常驻动画同屏会让浏览器每帧重算整屏模糊
+   （README 性能红线第 3 条）。
+   注意这里必须绑在**档位类** focus-half/focus-full 上，不能绑 focus-dolly ——
+   focus-dolly 只在飞行期间存在（落定即摘），绑它会出现「飞行中静止、落定后光斑又转起来」
+   的漏洞：此刻 backdrop-filter 还在，红线照样被踩（实测 ambAnim 从 none 回到 ambA）。
+   档位类由 focusRootLevel 维持，覆盖半专注与全屏的全生命周期。
+   特异性 (0,3,1) 高于 ambA/B/C 的 (0,2,1)，且置于其后，确保压制成立。 */
+html.focus-half[data-motion] .ambient-bg i,
+html.focus-full[data-motion] .ambient-bg i,
+html.focus-dolly[data-motion] .ambient-bg i{animation:none}
 @keyframes capsuleIn{from{opacity:0}to{opacity:1}}
 @media(max-width:650px){
   /* 窄屏：胶囊占左侧大部分宽度，退出钮移到右下角避免重叠；错误数隐藏（结果页仍有） */
@@ -154,19 +215,29 @@ html.focus-dolly[data-motion] #focusCapsule,html.focus-dolly[data-motion] #focus
 .share-row-btn{min-height:28px;padding:3px 10px;font-size:12px}
 #sharePreview{border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--surface)}
 #shareImg{display:block;width:100%;height:auto}
+/* v2.2：badgeIn 原为「scale .4 → 1.12 → 1」的过冲回弹（overshoot）。
+   引擎全站禁用回弹：主缓动 cubic-bezier(.32,.72,0,1) 本身就是「快起慢落、
+   尾段极平坦」，用它可以得到「到位即停」的收束感；再叠 keyframe 过冲，
+   观感就是「先冲过头再弹回来」，与整个应用的气质不一致。
+   改为 scale .92 → 1 + 位移，纯 EASE 收束。 */
 .record-badge{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:5px 14px;border-radius:20px;background:linear-gradient(120deg,#f5d67b,#e0a33e);color:#4a3208;font-weight:750;font-size:13px;animation:badgeIn var(--dur-macro) var(--ease) both}
-@keyframes badgeIn{0%{opacity:0;transform:scale(.4) rotate(-8deg)}60%{opacity:1;transform:scale(1.12) rotate(2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
-/* 练习手感：字符落定弹跳 / 错误抖动 / 光标呼吸 / 按键下沉（full+lite 保留） */
-html:not([data-motion="off"]) .ch.done-ok{animation:chPop var(--dur-micro) var(--ease)}
+@keyframes badgeIn{from{opacity:0;transform:translateY(6px) scale(.92)}to{opacity:1;transform:none}}
+/* 练习手感：字符落定 / 错误抖动 / 光标呼吸 / 按键下沉（full+lite 保留）
+   v2.2：chPop 原为 scale(1) → 1.18 → 1 的「先放大再缩回」，靠中间关键帧制造
+   回弹。这与引擎的收束原则相反，且 1.18 的幅度在等宽字格内会让相邻字符视觉挤压。
+   改为「从略小处回正」（.88 → 1）——同样是「落定有一下」，但方向是收拢而非弹开，
+   且只播一次、终点即静止，不与下一个字符的入场抢视线。
+   幅度取 .88 而非更小：等宽字格里字符本身有字身空隙，缩太多会像「抖了一下」。 */
+html:not([data-motion="off"]) .ch.done-ok{animation:chPop var(--dur-micro) var(--ease-out)}
 html:not([data-motion="off"]) .ch.done-err{animation:chShake var(--dur-micro) var(--ease)}
-@keyframes chPop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes chPop{from{transform:scale(.88);opacity:.7}to{transform:scale(1);opacity:1}}
 @keyframes chShake{0%,100%{transform:none}25%{transform:translateX(-2px)}70%{transform:translateX(2px)}}
 .ch{display:inline-block}
-html[data-motion="full"] .ch.cur{animation:curBreath 1.1s ease-in-out infinite}
+html[data-motion="full"] .ch.cur{animation:curBreath var(--cycle-breath) var(--ease-inout) infinite}
 @keyframes curBreath{0%,100%{opacity:1}50%{opacity:.55}}
 html:not([data-motion="off"]) .key.hit-ok,html:not([data-motion="off"]) .key.hit-err{transform:translateY(2px) scale(.95);transition:transform var(--dur-tap) var(--ease)}
 /* 进度条流光（仅 full） */
-html[data-motion="full"] #progressFill{background-image:linear-gradient(100deg,transparent 30%,#ffffff59 50%,transparent 70%);background-size:220% 100%;animation:shimmer 1.7s linear infinite}
+html[data-motion="full"] #progressFill{background-image:linear-gradient(100deg,transparent 30%,#ffffff59 50%,transparent 70%);background-size:220% 100%;animation:shimmer var(--cycle-shimmer) linear infinite}
 @keyframes shimmer{from{background-position:130% 0}to{background-position:-130% 0}}
 /* v2.1：全部弹窗开合（结算 .box / 登录 .auth-layout / 改密 .auth-card）迁至
    motion.js modalIn/modalOut —— 入场 base、退场 base×0.72，开合互逆同节奏。
@@ -174,23 +245,27 @@ html[data-motion="full"] #progressFill{background-image:linear-gradient(100deg,t
    Tab 方向性切换已迁至合成层 pageCross（v2.0 起），键帽浮动光泽等微动效保留。 */
 /* v2.1：设置面板开合迁至 motion.js sheetIn/sheetOut（从入口展开/收回互逆），
    原 springUp/drawerSpring CSS 入场动画移除 —— 与 WAAPI 同元素叠加会双动画打架。 */
-html[data-motion="full"] .studio-hero .key-art b{animation:keyFloat 3.4s ease-in-out infinite;position:relative;overflow:hidden}
-html[data-motion="full"] .studio-hero .key-art b:nth-child(2){animation-delay:var(--dur-base)}
-html[data-motion="full"] .studio-hero .key-art b:nth-child(3){animation-delay:.7s}
-html[data-motion="full"] .studio-hero .key-art b:nth-child(4){animation-delay:1.05s}
-html[data-motion="full"] .studio-hero .key-art b:nth-child(5){animation-delay:1.4s}
-html[data-motion="full"] .studio-hero .key-art b::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff66 50%,transparent 65%);transform:translateX(-130%);animation:keySheen 4.6s ease-in-out infinite}
+html[data-motion="full"] .studio-hero .key-art b{animation:keyFloat var(--cycle-float) var(--ease-inout) infinite;position:relative;overflow:hidden}
+html[data-motion="full"] .studio-hero .key-art b:nth-child(2){animation-delay:calc(var(--cycle-float) * .1)}
+html[data-motion="full"] .studio-hero .key-art b:nth-child(3){animation-delay:calc(var(--cycle-float) * .2)}
+html[data-motion="full"] .studio-hero .key-art b:nth-child(4){animation-delay:calc(var(--cycle-float) * .3)}
+html[data-motion="full"] .studio-hero .key-art b:nth-child(5){animation-delay:calc(var(--cycle-float) * .4)}
+html[data-motion="full"] .studio-hero .key-art b::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff66 50%,transparent 65%);transform:translateX(-130%);animation:keySheen var(--cycle-float-sheen) var(--ease-inout) infinite}
 @keyframes keyFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @keyframes keySheen{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
 html.theme-xfade body,html.theme-xfade .sidebar,html.theme-xfade .card,html.theme-xfade .studio-hero,html.theme-xfade .page-heading,html.theme-xfade .btn,html.theme-xfade .appearance-panel,html.theme-xfade .account-panel,html.theme-xfade #typeArea,html.theme-xfade .daily-word-box{transition:background-color var(--dur-base) var(--ease),color var(--dur-base) var(--ease),border-color var(--dur-base) var(--ease)}
-/* 完成庆祝：成绩格 stagger（仅 full）；粒子 Canvas 由 JS 按档位驱动 */
+/* 完成庆祝：成绩格 stagger（仅 full）；粒子 Canvas 由 JS 按档位驱动。
+   v2.2：原延迟序列是 --dur-tap/--dur-tap/--dur-micro/--dur-micro/--dur-base
+   （90/90/180/180/320ms），与引擎 STAGGER 的三档分层（0/0.18D/0.34D）无关，
+   是「凭感觉排的」。改为 index × --stagger-step 的等差序列，与列表入场同源；
+   6 格共 5 步 = 140ms 铺满，比原来更紧凑，也更符合引擎的错峰语义。 */
 html[data-motion="full"] .daily-summary .ds-cell{animation:cellUp var(--dur-macro) var(--ease) both}
-html[data-motion="full"] .daily-summary .ds-cell:nth-child(2){animation-delay:var(--dur-tap)}
-html[data-motion="full"] .daily-summary .ds-cell:nth-child(3){animation-delay:var(--dur-tap)}
-html[data-motion="full"] .daily-summary .ds-cell:nth-child(4){animation-delay:var(--dur-micro)}
-html[data-motion="full"] .daily-summary .ds-cell:nth-child(5){animation-delay:var(--dur-micro)}
-html[data-motion="full"] .daily-summary .ds-cell:nth-child(6){animation-delay:var(--dur-base)}
-@keyframes cellUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+html[data-motion="full"] .daily-summary .ds-cell:nth-child(2){animation-delay:calc(var(--stagger-step) * 1)}
+html[data-motion="full"] .daily-summary .ds-cell:nth-child(3){animation-delay:calc(var(--stagger-step) * 2)}
+html[data-motion="full"] .daily-summary .ds-cell:nth-child(4){animation-delay:calc(var(--stagger-step) * 3)}
+html[data-motion="full"] .daily-summary .ds-cell:nth-child(5){animation-delay:calc(var(--stagger-step) * 4)}
+html[data-motion="full"] .daily-summary .ds-cell:nth-child(6){animation-delay:calc(var(--stagger-step) * 5)}
+@keyframes cellUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* 档位降级：off 全关；lite 去装饰性循环动画，保留手感微动效 */
 html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="off"] *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;gap:12px;flex-wrap:wrap}.accent-swatch{width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--border);position:relative;flex:none}.accent-swatch:hover{filter:brightness(1.12)}.accent-swatch[aria-pressed="true"]{outline:2px solid var(--primary);outline-offset:2px}.accent-custom{width:30px;height:30px;padding:0;border:1px dashed var(--border);border-radius:50%;background:conic-gradient(#c2453f,#c9a227,#5f9e3e,#2a9d8f,#3b6fb5,#7b5ea7,#c2453f);cursor:pointer;flex:none}.accent-custom:hover{filter:brightness(1.08)}.accent-custom.on{outline:2px solid var(--primary);outline-offset:2px;border-style:solid}.accent-custom input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}.appearance-note{font-size:12px;margin-top:13px}
@@ -203,7 +278,13 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
 .practice-grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px;align-items:start}.daily-settings{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}.daily-settings select{min-height:36px;padding:5px 8px;max-width:100%}.daily-settings .btn{min-height:36px;padding:6px 9px}.daily-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.daily-stats{min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;flex:1}.daily-stats .cell,#liveStats>div,.stat-cards .cell,.ds-cell,#modal .cell{min-width:0;border-radius:10px;background:var(--surface);border:1px solid var(--border);padding:8px 10px}.daily-stats b,.stat-cards b,.ds-cell b,#modal .cell b,#liveStats b{display:block;color:var(--primary);font:750 21px/1.2 var(--mono);font-variant-numeric:tabular-nums}.daily-stats .acc b,#liveStats .acc b{color:var(--ok)}.cell span,.ds-cell span,#liveStats>div{font-size:11px;color:var(--muted)}
 .daily-word-box{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:172px;padding:16px 10px}.daily-word{min-height:54px;font:750 clamp(24px,4.1vw,48px)/1.25 var(--mono);letter-spacing:.02em;overflow-wrap:anywhere;cursor:text;user-select:none}.daily-meta,.wc-actions,.review-actions,.quote-actions,.sentence-actions{display:flex;justify-content:center;align-items:center;gap:7px;flex-wrap:wrap}.daily-meta{margin:8px 0}.daily-meta .btn,.sentence-actions .btn,.quote-actions .btn{font-size:12px;min-height:34px;padding:6px 8px}.daily-phonetic,.wc-phonetic,.review-phonetic,.nb-item .p{color:var(--muted);font:500 13px/1.5 var(--phonetic)}.daily-def,.wc-def,.review-def{overflow-wrap:anywhere;line-height:1.6}.daily-tip{color:var(--muted);font-size:12px;margin-top:10px}.daily-fav.on,.wc-fav.on,.daily-meta .btn[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
 .ch{color:var(--muted);border-bottom:2px solid transparent}.ch.done-ok{color:var(--text)}.ch.done-err{color:var(--err);background:var(--err-soft)}.ch.cur{border-bottom-color:var(--primary);background:var(--primary-soft);color:var(--text);border-radius:3px}.daily-word-box:focus-within,.daily-quote:focus-within,.typing-card:has(#typeInput:focus){border-color:var(--primary)}
-.word-card,.review-card{border:1px solid var(--border);border-radius:13px;background:var(--card);padding:18px;margin:auto;max-width:540px;cursor:pointer;animation:appear var(--dur-micro) var(--ease) both}.wc-word,.review-word{font:750 clamp(24px,4vw,36px)/1.2 var(--mono);overflow-wrap:anywhere}.wc-actions{margin-top:13px}.wc-def{margin-top:6px}.daily-summary{position:relative;max-width:555px;margin:auto}.ds-title{font-size:23px;font-weight:750;margin-bottom:12px}.ds-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:12px}.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}.confetti i{position:absolute;opacity:.85;border-radius:2px;animation:fall linear forwards}@keyframes fall{from{transform:translateY(-36px) rotate(0)}to{transform:translateY(500px) rotate(540deg);opacity:0}}
+/* v2.2：appear 原挂在 .word-card/.review-card 上，用的是 --dur-micro(180ms)——
+   比引擎的入场 base(320ms) 短了近一半，且位移只有 4px，观感是「闪了一下」。
+   词卡是内容主体（不是微交互），应与列表项同节奏：base + 8px。
+   注：这里保留 CSS 实现而非改走 staggerEnter —— 单张卡片没有「顺序」可言，
+   用 WAAPI 反而要管 fill 清理；但当卡片成组出现时由 JS 调 staggerEnter，
+   届时本 keyframe 需让位（JS 会写内联 animation:none，见 app.js 的 playCardIn）。 */
+.word-card,.review-card{border:1px solid var(--border);border-radius:13px;background:var(--card);padding:18px;margin:auto;max-width:540px;cursor:pointer;animation:appear var(--dur-base) var(--ease-out) both}.wc-word,.review-word{font:750 clamp(24px,4vw,36px)/1.2 var(--mono);overflow-wrap:anywhere}.wc-actions{margin-top:13px}.wc-def{margin-top:6px}.daily-summary{position:relative;max-width:555px;margin:auto}.ds-title{font-size:23px;font-weight:750;margin-bottom:12px}.ds-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:12px}.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}.confetti i{position:absolute;opacity:.85;border-radius:2px;animation:fall linear forwards}@keyframes fall{from{transform:translateY(-36px) rotate(0)}to{transform:translateY(500px) rotate(540deg);opacity:0}}
 .daily-quote .panel-header{margin-bottom:11px}.quote-mark{font:700 54px/.78 Georgia,serif;color:var(--primary)}.quote-en,.sentence-target{font:600 clamp(17px,2vw,22px)/1.5 Georgia,serif;overflow-wrap:anywhere;margin-bottom:10px}.quote-zh{font-size:13px;color:var(--muted);margin-bottom:13px}.quote-actions,.sentence-actions{justify-content:flex-start}.quote-footer{color:var(--muted);border-top:1px solid var(--border);margin-top:16px;padding-top:11px;display:flex;align-items:center;gap:8px;font-size:9px}.quote-footer i{width:4px;height:4px;border-radius:50%;background:var(--primary)}.sentence-target{cursor:text;user-select:none}.sentence-status{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-bottom:10px}.sentence-result{padding:10px;background:var(--primary-soft);border-radius:9px;margin-top:10px}.sentence-save-tip,.auth-error,.admin-err{color:var(--err);font-size:13px}.sentence-result p{margin-bottom:6px}
 .path-grid,.lvl-btns,.library-grid,.stat-cards{display:grid;gap:10px}.path-grid,.stat-cards{grid-template-columns:repeat(4,minmax(0,1fr))}.lvl-btns{grid-template-columns:repeat(3,minmax(0,1fr))}.library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.path-step,.lvl-btn,.passage-item,.library-item,.nb-item{padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--surface);min-width:0;color:var(--text)}.path-step,.lvl-btn,.passage-item{text-align:left;cursor:pointer}.path-step:hover,.lvl-btn:hover,.passage-item:hover{border-color:var(--primary);background:var(--primary-soft)}.path-step b,.path-step span{display:block}.path-step b{color:var(--primary)}.path-step span,.lvl-btn p{font-size:12px;margin-top:4px;color:var(--muted)}.lvl-btn{padding:20px}.lvl-btn .tag,.lib-tag,.badge{display:inline-block;border-radius:20px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:700;padding:3px 8px}.lvl-btn .tag{margin-bottom:10px}.passage-list{display:grid;gap:7px;max-height:490px;overflow:auto}.passage-item,.library-head,.nb-item{display:flex;align-items:center;justify-content:space-between;gap:10px}.wcount{font-size:12px;color:var(--muted);white-space:nowrap}.library-count{color:var(--muted);white-space:nowrap}.library-count b{color:var(--primary);font:750 24px var(--mono)}.library-toolbar,.nb-toolbar,.admin-row,.library-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.library-toolbar input,.nb-toolbar input,.admin-row input{flex:1 1 160px;min-width:0}.library-filter{border-color:var(--border);padding:5px 9px}.library-item{display:flex;flex-direction:column;min-height:170px}.lib-tags,.nb-actions,.admin-action{display:flex;gap:6px;flex-wrap:wrap}.lib-en{font:600 18px/1.5 Georgia,serif;margin:7px 0}.lib-zh,.lib-alt,.lib-note{font-size:13px;margin-bottom:6px}.lib-alt{color:var(--primary)}.lib-note{color:var(--muted)}.lib-actions{margin-top:auto;padding-top:6px}.lib-actions .btn{min-height:33px;font-size:12px}.library-empty,.empty-tip{text-align:center;color:var(--muted);padding:26px 9px;grid-column:1/-1}
 .nb-list{display:grid;gap:8px}.nb-item{flex-wrap:wrap}.nb-item .w{font:700 17px var(--mono)}.nb-item .d{overflow-wrap:anywhere}
@@ -270,7 +351,10 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
 .kb-heat-empty{text-align:center;color:var(--muted);font-size:12px;padding:6px}
 .stat-cards{margin-bottom:15px}.stat-cards:empty{display:none}.stat-cards .cell{background:var(--card);padding:13px}.stat-cards b{font-size:24px}#historyChart{display:block;width:100%;height:280px}#chartBox{height:280px;overflow:hidden}#historyTable,#classTable,#recentTable,#adminStudents{max-width:100%;overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:max-content;font-size:13px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}th{color:var(--muted);font-size:12px}.badge.off{background:var(--err-soft);color:var(--err)}.admin-action .btn{min-height:32px;font-size:12px}
 #modal,#authModal,#pwModal{position:fixed;inset:0;display:flex;overflow:auto;padding:14px;background:#101913a3;z-index:100}#pwModal{z-index:110}#modal .box,.auth-card,.auth-layout{margin:auto;min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}#modal .box,.auth-card{width:min(100%,460px);padding:clamp(16px,3vw,28px)}#modal .box{text-align:center}#modal h2,.auth-card h2{margin:5px 0;font-size:24px}#modal .sub,.auth-card .sub{color:var(--muted);margin:5px 0 14px;font-size:13px}#modal .big{color:var(--primary);font:750 42px var(--mono)}#modal .big small{font-size:13px}#modal .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:13px 0}#modal .row{justify-content:center}.auth-layout{width:min(100%,760px);display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1fr);overflow:hidden}.auth-layout .auth-card{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.auth-story{background:var(--hero);padding:clamp(20px,4vw,44px);display:flex;flex-direction:column;justify-content:center}.auth-story strong{font-size:clamp(23px,4vw,42px);line-height:1.15;margin:9px 0}.auth-story .key-art{justify-content:flex-start;margin-top:21px}.auth-story .key-art b{width:clamp(25px,3.2vw,40px)}.auth-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}.auth-field{display:grid;gap:3px;margin-bottom:9px}.auth-field input{width:100%;min-width:0}.auth-error{min-height:17px;margin-bottom:9px}.auth-note{color:var(--muted);font-size:11px;margin-top:9px}
-@keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* 播放位置归一：appear / cellUp / badgeIn 原是「元素一进 DOM 就播」，
+   若元素在页面隐藏时被创建（切 Tab 后回来），动画早已跑完，用户看到的是直切。
+   JS 侧统一在可见后调用（见 app.js 的 playIn），此处只定义形态。 */
 @media(max-width:1100px){.wrap{padding-inline:22px}.practice-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}}
 @media(max-width:930px){.main{margin-left:0}.menu-button{display:inline-flex;min-height:33px}.sidebar{transform:translateX(-103%);visibility:hidden;transition:transform var(--dur-micro) var(--ease),visibility var(--dur-micro) var(--ease)}.sidebar.open{transform:none;visibility:visible}.sidebar-backdrop:not(.hidden){display:block}}
 @media(min-width:931px){.sidebar-backdrop{display:none!important}}

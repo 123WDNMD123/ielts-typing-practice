@@ -125,6 +125,9 @@
 <body>
 <a class="skip-link" href="#appMain">跳到主内容</a>
 <div class="ambient-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+<!-- 景深预模糊层：专注镜头推近时让背景退到焦外。
+     只在 html.focus-dolly 期间可见（CSS 控制），平时不参与渲染。 -->
+<div id="focusDolly" aria-hidden="true"></div>
 <div class="grain" aria-hidden="true"></div>
 <aside class="sidebar" id="sidebar" aria-label="工作台侧栏">
   <div class="brand">

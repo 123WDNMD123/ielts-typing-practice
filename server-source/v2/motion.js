@@ -28,20 +28,107 @@
 (function () {
   'use strict';
 
-  /* ---------- ① 统一缓动与时长令牌 ---------- */
+  /* ---------- ① 统一缓动与时长令牌 ----------
+     v2.2：令牌的唯一真源是 tokens.css，本文件启动时读进来。
+     下面的 FALLBACK 只在「CSS 尚未解析完 / 变量被误删」时兜底，
+     正常路径下永远不会用到 —— 改节奏请改 tokens.css，不要改这里。
+
+     曾经的坑：CSS 与 JS 各写一份 180/320/500 与同一条贝塞尔串，
+     靠注释「请保持一致」维系。这类约定必然漂移（v2.1 的 lite 档就
+     只改了 CSS 没改 JS）。现在 JS 读 --motion-base-*（原值，不随档位变），
+     档位换算仍由下面的 dur() 独揽 —— 若读 --dur-*（已减半值），
+     lite 档会被减半两次。 */
+
+  var FALLBACK = {
+    ease: 'cubic-bezier(0.32, 0.72, 0, 1)',
+    easeOut: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    easeInOut: 'cubic-bezier(0.65, 0, 0.35, 1)',
+    micro: 180, base: 320, macro: 500, tap: 90,
+    stagger: 28, staggerMid: 0.18, staggerTrail: 0.34,
+    back: 0.72
+  };
+
+  var ROOT = document.documentElement;
+
+  function cssVar(name) {
+    try {
+      var v = getComputedStyle(ROOT).getPropertyValue(name);
+      return v ? v.trim() : '';
+    } catch (e) { return ''; }
+  }
+
+  /** 读毫秒令牌：支持 "180ms" / "0.18s" / "180" 三种写法 */
+  function cssMs(name, fb) {
+    var v = cssVar(name);
+    if (!v) return fb;
+    var n = parseFloat(v);
+    if (!isFinite(n)) return fb;
+    if (/(^|[^m])s$/.test(v)) return Math.round(n * 1000);   // 秒 → 毫秒，但 ms 结尾不算
+    return Math.round(n);
+  }
+
+  function cssNum(name, fb) {
+    var v = cssVar(name);
+    if (!v) return fb;
+    var n = parseFloat(v);
+    return isFinite(n) ? n : fb;
+  }
+
+  /** 从 "cubic-bezier(a,b,c,d)" 抠出四个数；抠不动就用兜底串 */
+  function cssEase(name, fb) {
+    var v = cssVar(name) || fb;
+    var m = v.match(/cubic-bezier\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+    if (!m) return { css: fb, pts: parseBezierPoints(fb) };
+    return {
+      css: 'cubic-bezier(' + m[1] + ',' + m[2] + ',' + m[3] + ',' + m[4] + ')',
+      pts: [+m[1], +m[2], +m[3], +m[4]]
+    };
+  }
+
+  function parseBezierPoints(str) {
+    var fb = [0.32, 0.72, 0, 1];
+    var m = String(str).match(/cubic-bezier\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+    return m ? [+m[1], +m[2], +m[3], +m[4]] : fb;
+  }
+
+  var _ease = cssEase('--ease', FALLBACK.ease);
+  var _easeOut = cssEase('--ease-out', FALLBACK.easeOut);
+  var _easeInOut = cssEase('--ease-inout', FALLBACK.easeInOut);
+
   // demo 原值：iOS 式「快起慢落」，尾段极平坦，落定观感柔和
-  var EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
-  var EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
-  var EASE_INOUT = 'cubic-bezier(0.65, 0, 0.35, 1)';
+  var EASE = _ease.css;
+  var EASE_OUT = _easeOut.css;
+  var EASE_INOUT = _easeInOut.css;
 
   var DUR = {
-    micro: 180,   // 微交互：hover / 按键反馈 / 小徽章
-    base: 320,    // 转场：Tab 切换 / 弹窗 / 卡片
-    macro: 500    // 大几何：专注模式推近拉远
+    micro: cssMs('--motion-base-micro', FALLBACK.micro),  // 微交互：hover / 按键反馈 / 小徽章
+    base: cssMs('--motion-base-base', FALLBACK.base),     // 转场：Tab 切换 / 弹窗 / 卡片
+    macro: cssMs('--motion-base-macro', FALLBACK.macro),  // 大几何：专注模式推近拉远
+    tap: cssMs('--motion-base-tap', FALLBACK.tap)         // 按压：比 micro 更短，手感才锐利
   };
 
   // 错峰比例（demo：0 / 0.18 / 0.34）
-  var STAGGER = { lead: 0, mid: 0.18, trail: 0.34 };
+  var STAGGER = {
+    lead: 0,
+    mid: cssNum('--stagger-ratio-mid', FALLBACK.staggerMid),
+    trail: cssNum('--stagger-ratio-trail', FALLBACK.staggerTrail),
+    step: cssMs('--motion-base-stagger', FALLBACK.stagger)  // 列表逐项延迟基数
+  };
+
+  // 回撤比例：所有「关」的动作都比「开」短，开合才互逆
+  var BACK = cssNum('--motion-back', FALLBACK.back);
+
+  /* 编排节拍：一次转场拆成几个先行/并行的子层时用的内部比例。
+     这些不是档位令牌（不随 lite 变化），而是「同一支舞怎么分拍」的
+     编舞常数。集中在此，免得散落成一堆认不出来的 0.45 / 0.62 / 0.88。 */
+  var BEAT = {
+    flipGlyph: 0.72,    // 克隆层字形放大淡出：占主几何 0.72D，错峰 0.18D 起
+    flipReveal: 0.62,   // 真实内容浮现：更短更晚，收尾不拖尾巴
+    pageOut: 0.45,      // 旧页退场只给 0.45D，快速让位给新页
+    pageOutShift: 0.6,  // 旧页反向位移量 = dx × 0.6
+    pageInDelay: 0.12,  // 新页延迟 0.12D 起步（错峰机制的页面版）
+    pageIn: 0.88        // 新页用余下 0.88D 走完
+  };
 
   function motionMode() {
     return (window.StudioMotion && window.StudioMotion.get()) || 'full';
@@ -87,8 +174,8 @@
       return sy(t);
     };
   }
-  var easeFn = bezier(0.32, 0.72, 0, 1);
-  var easeOutFn = bezier(0.22, 1, 0.36, 1);
+  var easeFn = bezier(_ease.pts[0], _ease.pts[1], _ease.pts[2], _ease.pts[3]);
+  var easeOutFn = bezier(_easeOut.pts[0], _easeOut.pts[1], _easeOut.pts[2], _easeOut.pts[3]);
 
   /* ---------- ② 预模糊双层（机制④） ----------
      不动画 blur：准备好清晰层与预模糊层，只交叉切 opacity。
@@ -211,7 +298,7 @@
       a2 = inner.animate([
         { transform: 'scale(1)', opacity: 1 },
         { transform: 'scale(' + (cfg.glyphScale || 1.6) + ')', opacity: 0 }
-      ], { duration: D * 0.72, delay: D * STAGGER.mid, easing: EASE_INOUT, fill: 'forwards' });
+      ], { duration: D * BEAT.flipGlyph, delay: D * STAGGER.mid, easing: EASE_INOUT, fill: 'forwards' });
     }
 
     // 错峰层二：真实内容浮现
@@ -220,7 +307,7 @@
       a3 = reveal.animate([
         { opacity: 0, transform: 'scale(1.02)' },
         { opacity: 1, transform: 'scale(1)' }
-      ], { duration: D * 0.62, delay: D * STAGGER.trail, easing: EASE_OUT, fill: 'forwards' });
+      ], { duration: D * BEAT.flipReveal, delay: D * STAGGER.trail, easing: EASE_OUT, fill: 'forwards' });
     }
 
     var id = fly.dataset.flyId;
@@ -347,11 +434,14 @@
     return a.finished.catch(function () {});
   }
 
-  /** 列表错峰入场：每项延迟 index×step，上限 maxDelay 防长列表拖尾 */
+  /** 列表错峰入场：每项延迟 index×step，上限 maxDelay 防长列表拖尾。
+      step 默认取令牌 --motion-base-stagger（28ms），与 CSS 侧 --stagger-step 同源。
+      maxDelay 用 8×step（216ms ≈ 原 220）：长列表到第 8 项就不再往后推，
+      否则 60 条语料会拖出 1.7 秒的尾巴，末项还没出来用户已经滚走了。 */
   function staggerEnter(els, opts) {
     opts = opts || {};
-    var step = opts.step == null ? 28 : opts.step;
-    var maxDelay = opts.maxDelay == null ? 220 : opts.maxDelay;
+    var step = opts.step == null ? STAGGER.step : opts.step;
+    var maxDelay = opts.maxDelay == null ? step * 8 : opts.maxDelay;
     var arr = Array.from(els || []);
     return Promise.all(arr.map(function (el, i) {
       return enter(el, Object.assign({}, opts, { delay: Math.min(i * step, maxDelay) }));
@@ -443,8 +533,8 @@
       out.style.zIndex = '1';
       var aOut = out.animate([
         { opacity: 1, transform: 'translateX(0)' },
-        { opacity: 0, transform: 'translateX(' + (-dx * 0.6) + 'px)' }
-      ], { duration: D * 0.45, easing: EASE, fill: 'forwards' });
+        { opacity: 0, transform: 'translateX(' + (-dx * BEAT.pageOutShift) + 'px)' }
+      ], { duration: D * BEAT.pageOut, easing: EASE, fill: 'forwards' });
       var recOut = { el: out, anim: aOut, role: 'out' };
       st.anims.push(recOut);
       anims.push(aOut.finished.then(function () {
@@ -465,7 +555,7 @@
     var aIn = inn.animate([
       { opacity: 0, transform: 'translateX(' + dx + 'px)' },
       { opacity: 1, transform: 'translateX(0)' }
-    ], { duration: D * 0.88, delay: D * 0.12, easing: EASE_OUT, fill: 'both' });
+    ], { duration: D * BEAT.pageIn, delay: D * BEAT.pageInDelay, easing: EASE_OUT, fill: 'both' });
     var recIn = { el: inn, anim: aIn, role: 'in' };
     st.anims.push(recIn);
     anims.push(aIn.finished.then(function () {
@@ -579,7 +669,7 @@
     var a = panel.animate([
       { opacity: 1, transform: 'translate(0,0) scale(1)' },
       { opacity: to.opacity, transform: to.transform }
-    ], { duration: D * 0.72, easing: EASE, fill: 'forwards' });
+    ], { duration: D * BACK, easing: EASE, fill: 'forwards' });
     st.anim = a;
     return a.finished.then(function () {
       if (gen !== st.gen) return;
@@ -644,7 +734,7 @@
     var a = panel.animate([
       { opacity: 1, transform: 'translateY(0) scale(1)' },
       { opacity: 0, transform: 'translateY(10px) scale(0.985)' }
-    ], { duration: D * 0.72, easing: EASE, fill: 'forwards' });
+    ], { duration: D * BACK, easing: EASE, fill: 'forwards' });
     st.anim = a;
     return a.finished.then(function () {
       if (gen !== st.gen) return;
@@ -658,7 +748,7 @@
   /* ---------- 导出 ---------- */
   window.StudioMotionEngine = {
     EASE: EASE, EASE_OUT: EASE_OUT, EASE_INOUT: EASE_INOUT,
-    DUR: DUR, STAGGER: STAGGER,
+    DUR: DUR, STAGGER: STAGGER, BEAT: BEAT, BACK: BACK,
     ease: easeFn, easeOut: easeOutFn, bezier: bezier,
     mode: motionMode, isOff: isOff, isLite: isLite, dur: dur,
     // 通道

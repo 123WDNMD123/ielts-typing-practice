@@ -23,6 +23,11 @@ server-source/v2/release/
 strip-verify.json
 _strip-report.json
 
+# 部署产物：public 是 server.py 实际读取的目录，生产上用符号链指向 public-v1/public-v2。
+# 源码在 server-source/v2/，此处由 build-release.py 覆盖生成，不入库
+# （历史上也从未被跟踪；加这条是为了防止 git add . 误带进去）。
+server-source/public/
+
 # 系统杂项
 Thumbs.db
 Desktop.ini

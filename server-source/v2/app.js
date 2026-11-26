@@ -86,11 +86,45 @@ function animatePage(t){
   const E = window.StudioMotionEngine;
   if(E && !E.isOff()){
     E.pageCross(out, inn, fwd ? 1 : -1, { duration: 'base', dx: 22 });
+    pageContentIn(t, inn, E);
     return;
   }
   // off 档或引擎缺失：直切。旧页显隐已由 switchTab 的 classList.toggle 完成。
   // 但仍要清在途动画（切档瞬间可能有上一轮 full/lite 的动画在飞）。
   if(E) E.pageKill(inn.parentNode);
+}
+
+/* 页面内容错峰入场（v2.2）。
+   与 pageCross 分工：pageCross 负责「整页位移淡入」，本函数负责「页内元素依次浮现」。
+   两层都做位移会叠加成抖动，故本函数一律 dy:0，只做不透明度 + 引擎错峰。
+
+   只播一次：用页面上打标记的方式记账。同一 Tab 反复进出不重播 ——
+   用户来回切 Tab 时每次都闪一遍，比没有动画更烦人。
+   首访才播，正好符合「进入一个新空间」的语义。 */
+const PAGE_CONTENT_SEEN = new Set();
+const PAGE_CONTENT_ITEMS = {
+  daily:   ['#page-daily .path-step', '#page-daily .daily-tabs'],
+  test:    ['#page-test .test-settings > *'],
+  course:  ['#page-course .lvl-btn'],
+  library: ['#page-library .path-step', '#page-library .library-toolbar'],
+  history: ['#page-history .page-heading'],
+  class:   ['#page-class .page-heading'],
+  admin:   ['#page-admin .page-heading']
+};
+function pageContentIn(t, inn, E){
+  if(PAGE_CONTENT_SEEN.has(t)) return;
+  PAGE_CONTENT_SEEN.add(t);
+  const sels = PAGE_CONTENT_ITEMS[t];
+  if(!sels) return;
+  sels.forEach((sel, si) => {
+    const els = inn.querySelectorAll(sel);
+    if(!els.length) return;
+    // 第二组选择器整体延后半个错峰单位，形成「区块先、控件后」的两拍感
+    const base = si * 60;
+    els.forEach((el, i) => {
+      E.enter(el, { dy: 0, duration: 'base', delay: base + Math.min(i * (E.STAGGER.step || 28), 160) });
+    });
+  });
 }
 function randItem(a){ return a[Math.floor(Math.random()*a.length)]; }
 
@@ -147,9 +181,12 @@ function renderLibrary(){
   const rows = IELTS_LIBRARY.map((item,index)=>({item,index}))
     .filter(({item}) => libraryMatches(item, libraryFilter, q));
   document.getElementById('libraryCount').textContent = rows.length;
-  document.getElementById('libraryList').innerHTML = rows.length
+  const list = document.getElementById('libraryList');
+  list.innerHTML = rows.length
     ? rows.map(({item,index}) => libraryItemHTML(item, index)).join('')
     : LIBRARY_EMPTY_HTML;
+  // 卡片逐张错峰浮现（搜索/切分类时重播；离线项等滚进来再播）
+  if(rows.length) playIn(list, '.library-item');
 }
 function practiceLibraryItem(ref){
   if(!requireLogin()) return;
@@ -440,6 +477,10 @@ function showPassages(){
   }
   list.innerHTML = '';
   list.appendChild(frag);
+  /* 子项错峰渐显。注意这里必须 dy:0 —— 父容器 passages 正被 pageCross 整体
+     位移淡入，若子项也带位移，两层位移会叠加成「抖动两下」，观感比不加更差。
+     父层管位移、子层管浮现，各司其职才是错峰的正确用法。 */
+  playIn(list, '.passage-item', { dy: 0, duration: 'base' });
   /* v2.1 课程内导航：菜单→文章列表视为「进入下一级」，前进方向。
      pageCross 需要旧页仍可见才能做退场，故先摘 hidden 再转场（旧页由引擎收尾隐藏）。
      wasMenuVisible=false（如重练回列表）时 out 传 null，只做入场。 */
@@ -696,6 +737,93 @@ function fmtTime(s){ return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
    （v1.8 管理表格曾因此失效，见 adminActionsHTML 的 data-* 改法）。 */
 const ESC_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>ESC_MAP[c]); }
+
+/* ================= 列表进场的统一入口（v2.2） =================
+
+   问题：列表渲染几乎都是「拼字符串 → innerHTML」，元素一进 DOM 就开始跑
+   CSS 入场动画。但大量渲染发生在页面还 hidden 的时候：
+     · 切到「语料」时 renderLibrary 已跑完，pageCross 才把页面显示出来
+     · 打字区每次 beginSession 都重建 #typeArea 的字符
+     · 生词本、成绩页、全班记录都在 render 后才被切到前台
+   CSS 动画不等元素可见，等用户真看到时它早跑完了 —— 于是「有动画」的
+   页面看起来仍然是直切。这是 v2.1 里 staggerEnter 调用数为 0 的隐性原因：
+   就算接上去也没用，因为播放时机不对。
+
+   解法：渲染完只标记，等元素真的可见时再播。playIn(el) 是唯一入口：
+     · off 档 / 元素不可见 / 元素已在视口外 → 什么都不做（不浪费帧）
+     · 可见 → 交给引擎的 staggerEnter，逐项 index×step 错峰
+   用 IntersectionObserver 而不是同步判断：长列表首屏外的项滚动进来时
+   才播，避免 60 条语料在不可见时把 60 个 WAAPI 动画全排上。
+
+   注意：本函数只负责「入场」。退场（leave）不在这里做 —— 列表项都是
+   被 innerHTML 整体替换的，退场没有可停留的实体，强行做只会看到残影。 */
+
+let playInObserver = null;
+function playIn(container, selector, opts){
+  const E = window.StudioMotionEngine;
+  if(!E || !container) return;
+  const items = selector ? Array.from(container.querySelectorAll(selector))
+                         : Array.from(container.children);
+  if(!items.length) return;
+
+  // off 档：引擎内部 dur() 为 0，enter 会走直切分支，直接清干净即可
+  if(E.isOff()){
+    items.forEach(el => { el.style.opacity = ''; el.style.transform = ''; });
+    return;
+  }
+
+  const cfg = Object.assign({ dy: 8, duration:'base' }, opts || {});
+  const step = E.STAGGER.step || 28;
+  const cap = step * 8;   // 长列表到第 8 项后不再累加，避免 60 条拖出 1.7 秒尾巴
+  const play = (el, i) => E.enter(el, Object.assign({}, cfg, {
+    delay: Math.min(i * step, cap) + (cfg.delay || 0)
+  }));
+
+  // 容器不可见（display:none 或祖先 hidden）：此时播等于白播。
+  // 用一个「等可见」的轻量递归 —— 每帧只做一次 getClientRects 判定，
+  // 一旦可见就立刻播并停止，不留常驻定时器。
+  if(!container.getClientRects().length){
+    let tries = 0;
+    const wait = () => {
+      if(tries++ > 90) return;                        // 最多等约 1.5s，超时放弃（用户已离开该页）
+      if(container.getClientRects().length) { items.forEach(play); return; }
+      requestAnimationFrame(wait);
+    };
+    requestAnimationFrame(wait);
+    return;
+  }
+
+  if(typeof IntersectionObserver === 'undefined'){
+    items.forEach(play);
+    return;
+  }
+
+  // 首屏内立刻播（不等一个观察周期，否则会有一帧空窗）；
+  // 首屏外的项等滚进来再播，避免不可见项占着一堆 WAAPI 动画。
+  const viewH = window.innerHeight || 800;
+  const deferred = [];
+  items.forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+    if(r.top < viewH) play(el, i);
+    else deferred.push([el, i]);
+  });
+  if(!deferred.length) return;
+
+  if(!playInObserver){
+    playInObserver = new IntersectionObserver((entries) => {
+      entries.forEach(en => {
+        if(!en.isIntersecting) return;
+        playInObserver.unobserve(en.target);
+        const job = en.target.__playInJob;
+        if(job){ delete en.target.__playInJob; job(); }
+      });
+    }, { rootMargin: '0px 0px -5% 0px', threshold: 0.01 });
+  }
+  deferred.forEach(([el, i]) => {
+    el.__playInJob = () => play(el, i);
+    playInObserver.observe(el);
+  });
+}
 
 /* v2.0 成绩结算：计算层抽为纯函数。
    公式与 v1.8 逐字一致，仅从 finish() 里提出来便于单测：
@@ -2066,6 +2194,30 @@ function focusDollyApply(s){
   const areaH = Math.max(0, innerH - occ - areaGap - s.curveH - curveGap - s.progH - progGap);
   area.style.height = areaH + 'px';
 }
+/* ---------- 景深：专注镜头的预模糊双层（v2.2） ----------
+   目的：镜头推近时，被淡出的背景不该只是「变淡」，而应是「退到焦外」。
+   这是 demo 里图标展开为全屏时最关键的纵深感来源，正式项目一直缺这一层。
+
+   为什么不用 blur 动画：README 性能红线明令「大尺寸常驻动画元素不使用 blur 滤镜」。
+   blur 的半径变化会强制每帧重算整块模糊（与尺寸成正比，全屏时极贵）。
+   做法与引擎的 setBackdropBlur 同源：**滤镜值恒定，只动 opacity**。
+   整层预模糊一次（浏览器只需在层创建时算一遍），之后每帧只改一个合成层的不透明度。
+
+   为什么是 backdrop-filter 而不是复制内容再模糊：
+   复制内容要克隆整棵 DOM（打字区有数百个字符 span + canvas），
+   且克隆层与真实层的滚动位置、字体度量必须逐帧同步，任何一帧不同步就是重影。
+   backdrop-filter 直接吃「下面已经画好的像素」，天然零重影、零克隆成本。
+
+   为什么用独立 div（#focusDolly）而不是在卡片上加伪元素：
+   CSS 里已有的 `html.focus-dolly` 是镜头飞行/全屏的唯一状态类，
+   本层的显隐完全由它驱动（见 app.css 的 `html.focus-dolly #focusDolly`），
+   JS 只管 opacity 一个值。div 放在 body 开头、z-index:0 —— 压在
+   ambient-bg 之上、.main 之下，于是它采集的是「背景」而不是「卡片自己」。
+
+   代价与边界：
+   · backdrop-filter 只在镜头期间存在，退出镜头即随类消失 —— 不常驻，故不违反红线；
+   · 半专注（1 档）与全屏（2 档）都启用，但全屏时背景几乎全暗，虚化幅度相应减弱（见 CSS）；
+   · off 档 focusCanAnimate() 返回 false，根本不进镜头，本层也不会出现。 */
 function focusChromeEls(){
   return {
     hdr: document.querySelector('.studio-header'),
@@ -2146,6 +2298,12 @@ function focusDolly(level, duration){
     to.aux.forEach(a=>{ a.o = (level === 1 && a.id === 'liveStats') ? 0 : 1; });
   }
   // 起镜：先挂飞行类（CSS 转 fixed/flex 承载逐帧值），再切目标档位类。顺序不可换。
+  /* 景深起点必须在切档位类**之前**读 —— 与下面 chromeFrom 同理：
+     此刻 DOM 还是上一档的静态状态，计算值即真实视觉；
+     切完 focusRootLevel 再读会拿到目标档位的静态 opacity（见 app.css 的
+     html.focus-full #focusDolly{opacity:.7}），起点就成了终点，看不到淡入。 */
+  const depthEl = document.getElementById('focusDolly');
+  const depthFrom = depthEl ? focusNum(depthEl, 'opacity', 0) : 0;
   root.classList.add('focus-dolly');
   card.classList.add('focus-dolly');
   focusRootLevel(level);
@@ -2153,6 +2311,16 @@ function focusDolly(level, duration){
                     amb: level === 2 ? .7 : 1, cap: level > 0 ? 1 : 0, footer: level === 0 ? 1 : 0};
   const lerp = (a,b,t)=>a + (b-a)*t;
   // chrome 逐帧写值（页头/页标题/键盘/页脚/光斑/胶囊同拍）
+  /* 景深：与 chrome 同一条时间线。
+     终点取 1 档 0.55 / 2 档 0.7 —— 半专注要「看得出背景还在」，
+     全屏要「背景彻底退后」。回 0 档时终点为 0，整层淡出。
+     depth-full 类只在 2 档挂上，用来切到更弱的静态 blur 值（见 app.css）。
+     注意这里写的是 opacity，不是 filter —— 滤镜值全程恒定，符合性能红线。 */
+  const depthTo = level === 2 ? 0.7 : (level === 1 ? 0.55 : 0);
+  if(depthEl){
+    if(level === 2) depthEl.classList.add('depth-full');
+    else depthEl.classList.remove('depth-full');
+  }
   const applyChrome = t => {
     const co = lerp(chromeFrom.hdr, chromeTo.hdr, t);
     [c.hdr, c.heading].forEach(el=>{ if(el){ el.style.opacity = co; el.style.visibility = co < .01 ? 'hidden' : 'visible'; } });
@@ -2170,6 +2338,8 @@ function focusDolly(level, duration){
     c.amb.forEach(el=>{ el.style.opacity = ao; });
     const ca = lerp(chromeFrom.cap, chromeTo.cap, t);
     [c.cap, c.ex].forEach(el=>{ if(el) el.style.opacity = ca; });
+    // 景深：纯合成层透明度推进（滤镜恒定，不随帧重算）
+    if(depthEl){ depthEl.style.opacity = lerp(depthFrom, depthTo, t); }
   };
   // v2.0：时长交由统一引擎按档位换算（full 原值 / lite ×0.5 / off 0）。
   // 专注模式的几何动画仅 full 档启用（见 focusSet），故此处实际只会拿到 full 值；
@@ -2247,6 +2417,10 @@ function focusDolly(level, duration){
     focusDollyNow = null;
     focusDollyClear();
     focusRootLevel(level);
+    /* 景深层清值：回到某档后，若该档仍需虚化，其强度应由 CSS 静态规则决定
+       （1 档 0.55 / 2 档 0.7），而不是把飞行末帧的临时值留在内联里。
+       内联值残留会让「退出再进入」拿错起点 —— 下次起镜读到的 depthFrom 是旧值。 */
+    if(depthEl) depthEl.style.removeProperty('opacity');
     if(level > 0) syncFocusCapsule();
     try{ liveCurveDraw(performance.now()); }catch(e){}
     focusPrewarm();   // 落定后补齐其余档位缓存（飞行中被跳过的那些）
@@ -2887,6 +3061,10 @@ async function renderHistory(){
     <div class="cell"><b>${avg}</b><span>平均 WPM</span></div>
     <div class="cell"><b>${avgAcc}%</b><span>平均准确率</span></div>
     <div class="cell"><b>${total}</b><span>累计练习次数</span></div>`;
+  /* 统计卡错峰。表格行不参与：<tr> 上加 transform 会让表格的单元格边框
+     在亚像素舍入下抖动，且 tr 的位移不受单元格裁剪约束，容易溢出到相邻行。
+     表格改用整块淡入（下面 tbl 那一处）。 */
+  playIn(cards, '.cell');
   let rows = h.slice().reverse().map((r,ri)=>{
     const d = dateFromRecord(r.t);
     return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td>
@@ -2894,6 +3072,8 @@ async function renderHistory(){
     <td><button type="button" class="btn ghost share-row-btn" data-share-idx="${ri}" aria-label="生成这条成绩的分享卡">分享</button></td></tr>`;
   }).join('');
   tbl.innerHTML = `<table><tr><th>时间</th><th>模式</th><th>WPM</th><th>准确率</th><th>错误</th><th>用时</th><th></th></tr>${rows}</table>`;
+  // 表格整体淡入（行级不做，原因见统计卡处的注释）
+  { const E = window.StudioMotionEngine; if(E && !E.isOff()) E.enter(tbl, { dy: 4, duration:'base', delay: 60 }); }
   tbl.querySelectorAll('[data-share-idx]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const r = h.slice().reverse()[parseInt(btn.dataset.shareIdx, 10)];
@@ -3036,6 +3216,7 @@ async function renderClass(){
     <div class="cell"><b>${totalCnt}</b><span>累计练习次数</span></div>
     <div class="cell"><b>${avgWpm}</b><span>全班平均 WPM</span></div>
     <div class="cell"><b>${avgAcc}%</b><span>全班平均准确率</span></div>`;
+  playIn(cards, '.cell');
   let rows = st.map((s,i)=>{
     const d = new Date(s.last_t*1000);
     const t = (s.last_t>1e12) ? new Date(s.last_t) : d;
@@ -3044,6 +3225,7 @@ async function renderClass(){
   }).join('');
   document.getElementById('classTable').innerHTML =
     `<table><tr><th>排名</th><th>学生</th><th>最佳 WPM</th><th>平均 WPM</th><th>平均准确率</th><th>练习次数</th><th>最近练习单词数</th><th>最近练习</th></tr>${rows}</table>`;
+  { const E = window.StudioMotionEngine; if(E && !E.isOff()) E.enter(document.getElementById('classTable'), { dy: 4, duration:'base', delay: 60 }); }
   let recs = (rec.records||[]).slice(0,30).map(r=>{
     const t = (r.t>1e12) ? new Date(r.t) : new Date(r.t*1000);
     const words = Math.round((r.chars || 0) / 5);
@@ -3570,6 +3752,7 @@ function renderNotebook(){
     const item = DAILY_MAP[w] || {p:'', d:''};
     return notebookItemHTML(w, item, notebookSrsTag(sm[w], now));
   }).join('');
+  playIn(list, '.nb-item', { dy: 6 });
   srsRenderBadge();
 }
 function notebookSpeak(w){ speakText(w); }
@@ -3872,6 +4055,9 @@ function renderAdminStudents(list){
   if(!list.length){ box.innerHTML = ADMIN_EMPTY_HTML; return; }
   box.innerHTML = '<div style="overflow-x:auto"><table>' + ADMIN_THEAD +
     list.map(adminRowHTML).join('') + '</table></div>';
+  // 表格整体淡入（行级不做，原因见成绩页统计卡处的注释）
+  const E = window.StudioMotionEngine;
+  if(E && !E.isOff()) E.enter(box, { dy: 4, duration:'base' });
 }
 /* 委托一次绑定即可（表格每次 loadAdmin 全量重绘，逐按钮绑定会泄漏）。
    姓名从 dataset 读，浏览器已解码属性实体，拿到的是原始字符串。 */

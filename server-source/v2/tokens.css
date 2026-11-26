@@ -38,38 +38,73 @@
 }
 
 /* ============================================================
-   动画令牌（v2.0 新增）
-   与 motion.js 的 DUR / EASE 一一对应，CSS 与 JS 共用同一套节奏。
+   动效令牌（v2.2 · 单一真源）
 
-   v1.8 的问题：交互时长散落成 16 种（.06/.07/.12/.14/.15/.18/.2/
-   .22/.24/.26/.3/.34/.35/.36/.42/.45/.5/.55s），缓动有 4 种自定义
-   贝塞尔外加大量裸 ease —— 这是「观感不统一」的根源。
-   v2.0 归并为三档时长 + 一条主缓动。
+   【为什么要有这一节】
+   v1.8 的交互时长散落成 16 种（.06/.07/.12/.14/.15/.18/.2/.22/.24/
+   .26/.3/.34/.35/.36/.42/.45/.5/.55s），缓动有 4 种自定义贝塞尔外加
+   大量裸 ease —— 这是「观感不统一」的根源。
+   v2.0 归并为三档时长 + 一条主缓动，但只在 CSS 里归并；
+   motion.js 内部仍各写一份 DUR / EASE 字面量，两边靠注释「约定一致」。
+
+   注释约束不了代码。v2.2 起：**motion.js 启动时读取本文件的令牌**，
+   JS 里那份字面量降级为「CSS 尚未就绪时的兜底」。改动效只改这里。
+
+   【为什么是两层】
+   · --motion-base-*  原值，**永不随档位变化**。JS 读它，再按档位自己换算。
+   · --dur-*          给 CSS 用的「当前档位生效值」，lite 自动减半、off 归零。
+   只留一层会出错：lite 档 JS 读到已减半的值，再乘 0.5 就是减半两次。
    ============================================================ */
 :root{
-  /* 主缓动：demo 原值，快起慢落，尾段平坦 → 落定柔和无顿挫 */
-  --ease:cubic-bezier(0.32,0.72,0,1);
-  --ease-out:cubic-bezier(0.22,1,0.36,1);
-  --ease-inout:cubic-bezier(0.65,0,0.35,1);
+  /* ① 缓动族：一条主曲线走天下，另两条只用于明确需要对称/加速的场合 */
+  --ease:cubic-bezier(0.32,0.72,0,1);      /* 主缓动：快起慢落，尾段极平坦 */
+  --ease-out:cubic-bezier(0.22,1,0.36,1);  /* 纯入场：起步即快，收尾更长 */
+  --ease-inout:cubic-bezier(0.65,0,0.35,1);/* 往返循环：进出对称 */
 
-  /* 三档时长 */
-  --dur-micro:180ms;   /* 微交互：hover / 按键 / 小徽章 */
-  --dur-base:320ms;    /* 转场：Tab / 弹窗 / 卡片 */
-  --dur-macro:500ms;   /* 大几何：专注模式推近拉远 */
+  /* ② 三档时长原值 */
+  --motion-base-micro:180ms;   /* 微交互：hover / 按键 / 小徽章 */
+  --motion-base-base:320ms;    /* 转场：Tab / 弹窗 / 卡片 */
+  --motion-base-macro:500ms;   /* 大几何：专注模式推近拉远 */
+  --motion-base-tap:90ms;      /* 按压反馈，比 micro 更短，手感才锐利 */
 
-  /* 派生：按压反馈比 micro 更短，保持手感锐利 */
-  --dur-tap:90ms;
+  /* ③ 错峰
+     step：列表逐项延迟基数（与 staggerEnter 默认值同源）。
+     ratio：同一容器内 2~3 层元素的分层浮现比例，0 / 0.18D / 0.34D。 */
+  --motion-base-stagger:28ms;
+  --stagger-ratio-mid:0.18;
+  --stagger-ratio-trail:0.34;
 
-  /* 错峰比例（与 motion.js STAGGER 一致，供 CSS 列表动画用） */
-  --stagger-step:28ms;
+  /* ④ 回撤比例：所有「关」的动作都比「开」短，开合才有互逆的呼吸感。
+     与 motion.js 的 sheetOut / modalOut（0.72D）同值。 */
+  --motion-back:0.72;
+
+  /* ⑤ 装饰性循环周期（仅 full 档跑；lite 静默，off 整层隐藏）
+     周期之间刻意取互质数（34/41/47），避免三个光斑周期性重合。 */
+  --cycle-amb-1:34s;
+  --cycle-amb-2:41s;
+  --cycle-amb-3:47s;
+  --cycle-sheen:2.8s;      /* 标题流光，只跑一次 */
+  --cycle-breath:1.1s;     /* 光标呼吸 */
+  --cycle-shimmer:1.7s;    /* 进度条流光 */
+  --cycle-float:3.4s;      /* 键帽浮动 */
+  --cycle-float-sheen:4.6s;/* 键帽扫光 */
+
+  /* ⑥ 当前档位生效值（CSS 用；JS 不读这一层，读上面那层） */
+  --dur-micro:var(--motion-base-micro);
+  --dur-base:var(--motion-base-base);
+  --dur-macro:var(--motion-base-macro);
+  --dur-tap:var(--motion-base-tap);
+  --stagger-step:var(--motion-base-stagger);
 }
 
-/* lite 档：时长减半，且禁用大几何动画（由 motion.js 同步判定） */
+/* lite 档：时长减半（用 calc 派生，不再手写一份减半后的数字）
+   —— 手写会漂移：改了 --motion-base-* 却忘了改 lite 的副本。 */
 html[data-motion="lite"]{
-  --dur-micro:90ms;
-  --dur-base:160ms;
-  --dur-macro:250ms;
-  --dur-tap:45ms;
+  --dur-micro:calc(var(--motion-base-micro)/2);
+  --dur-base:calc(var(--motion-base-base)/2);
+  --dur-macro:calc(var(--motion-base-macro)/2);
+  --dur-tap:calc(var(--motion-base-tap)/2);
+  --stagger-step:calc(var(--motion-base-stagger)/2);
 }
 
 /* off 档与系统减弱动效：全部归零，直切 */
