@@ -17,6 +17,12 @@
                liveCurve canvas 每帧按当帧宽重绘；打字首键触发时焦点不能断。
                克隆层在这三条上物理不成立，故保留逐帧通道，但共用同一缓动与时长。
 
+   v2.1 增补两条页面级通道（手机应用式转场，纯合成层）：
+     · pageCross()  栏目切换双页交叉：旧页反向快速淡出 + 新页错峰方向淡入，
+                    代际号防连切竞态，任何时候至多一对页面在飞。
+     · sheetIn/Out() 设置页开合：从入口卡片方向展开 / 沿同一曲线收回，
+                    开与关互逆呼应；移动端自动变底部抽屉语义。
+
    档位：StudioMotion full / lite / off（off 与 reduced-motion 直切）。
    ============================================================ */
 (function () {
@@ -352,32 +358,301 @@
     }));
   }
 
-  /* ---------- ⑥ 弹窗开合（内容静态，走合成层） ---------- */
+  /* ---------- ⑥ v2.1 页面级转场（手机应用式，纯合成层） ----------
+     两条通道，同一节奏源（EASE + 时长令牌），开与关互逆呼应：
+
+     · pageCross(out, inn, dir)  栏目/页面切换的双页交叉：
+         旧页反向快速淡出（0.45D），新页错峰 0.12D 方向性淡入（余下 0.88D）。
+         旧页退场期间 position:absolute 脱流（新页立即占据布局位），
+         避免两页同屏纵向堆叠 causing 滚动条闪跳。
+         代际号防竞态：连切时旧动画立即 cancel 并把上一轮的两页钉回终值，
+         任何时候至多一对页面在飞，杜绝叠加与残影。
+
+     · sheetIn/sheetOut(panel, anchor)  设置页开合：
+         开：从入口卡片的位置与尺寸感（translate + scale 0.96）展开到面板本体；
+         关：沿同一曲线收回入口方向（时长 0.72D，方向互逆）。
+         移动端（面板贴底全宽）自动改底部抽屉语义：translateY 滑入滑出。
+         面板内容是活的（表单/取色器），故不建克隆层，只对面板本体做合成层变换。 */
+
+  /* 页面转场按「作用域」分组：Tab 级（.wrap 下的 page-*）与页内级
+     （#page-daily 的三分段、课程菜单↔文章列表）是不同父容器下的独立切换，
+     共享单例会互相误杀 —— Tab 入场播到一半时页内切分段，不该把 Tab 动画取消。
+     每个 scope 独立代际号与在途记录，同 scope 连切才取消上一轮。 */
+  var pageStates = new WeakMap();   // scopeEl -> {gen, anims:[{el,anim}]}
+  function pageState(scope) {
+    var st = pageStates.get(scope);
+    if (!st) { st = { gen: 0, anims: [] }; pageStates.set(scope, st); }
+    return st;
+  }
+
+  function pageKill(scope) {
+    var st = pageState(scope);
+    st.gen++;
+    st.anims.forEach(function (rec) {
+      try { rec.anim.cancel(); } catch (e) {}
+      // 钉终值：cancel 会回滚 fill 效果，必须显式清掉退场期挂的内联样式
+      rec.el.style.opacity = '';
+      rec.el.style.transform = '';
+      rec.el.style.position = '';
+      rec.el.style.left = '';
+      rec.el.style.top = '';
+      rec.el.style.right = '';
+      rec.el.style.width = '';
+      rec.el.style.pointerEvents = '';
+      rec.el.style.zIndex = '';
+      // 被中断的退场页必须立即隐藏 —— 它的「加 hidden」回调因代际过期不会再执行，
+      // 不补这一刀会残留一个脱流的幽灵页（新页已可见，旧页还叠在上面）。
+      if (rec.role === 'out') rec.el.classList.add('hidden');
+    });
+    st.anims = [];
+  }
+
+  /**
+   * 双页交叉转场。调用方先完成显隐类切换（新页已可见），再调本函数。
+   * @param {Element|null} out 旧页（可为 null：首次进入）
+   * @param {Element} inn 新页
+   * @param {number} dir +1 前进 / -1 后退（决定位移方向）
+   * @param {Object} opts { duration, dx, scope } scope 缺省取 inn.parentNode
+   */
+  function pageCross(out, inn, dir, opts) {
+    opts = opts || {};
+    if (!inn) return Promise.resolve();
+    var scope = opts.scope || inn.parentNode;
+    pageKill(scope);
+    var st = pageState(scope);
+    var gen = st.gen;
+    var D = dur(opts.duration || 'base');
+    if (!D) {
+      if (out && out !== inn) out.classList.add('hidden');
+      return Promise.resolve();
+    }
+    var dx = (opts.dx == null ? 22 : opts.dx) * (dir >= 0 ? 1 : -1);
+    var anims = [];
+
+    // 旧页：脱流叠在原位反向淡出。宽度锁到父容器内容宽，避免脱流后 shrink。
+    // 顺序契约：先量 offsetLeft/Top（流内真实位置），再挂 absolute。
+    if (out && out !== inn && !out.classList.contains('hidden')) {
+      var parent = out.parentNode;
+      var ox = out.offsetLeft, oy = out.offsetTop;
+      out.style.position = 'absolute';
+      out.style.left = ox + 'px';
+      out.style.top = oy + 'px';
+      out.style.right = 'auto';
+      out.style.width = parent.clientWidth + 'px';
+      out.style.pointerEvents = 'none';
+      out.style.zIndex = '1';
+      var aOut = out.animate([
+        { opacity: 1, transform: 'translateX(0)' },
+        { opacity: 0, transform: 'translateX(' + (-dx * 0.6) + 'px)' }
+      ], { duration: D * 0.45, easing: EASE, fill: 'forwards' });
+      var recOut = { el: out, anim: aOut, role: 'out' };
+      st.anims.push(recOut);
+      anims.push(aOut.finished.then(function () {
+        if (gen !== st.gen) return;   // 已被新一轮接管，不再写 DOM
+        out.classList.add('hidden');
+        out.style.opacity = ''; out.style.transform = '';
+        out.style.position = ''; out.style.left = ''; out.style.top = '';
+        out.style.right = ''; out.style.width = '';
+        out.style.pointerEvents = ''; out.style.zIndex = '';
+        try { aOut.cancel(); } catch (e) {}
+        // 从在途表移除：finished 的动画若留在表里，_pageAnims 会把已完成的也算成在途
+        var i = st.anims.indexOf(recOut);
+        if (i >= 0) st.anims.splice(i, 1);
+      }).catch(function () {}));
+    }
+
+    // 新页：错峰 0.12D 方向性淡入（demo 错峰机制的页面版）
+    var aIn = inn.animate([
+      { opacity: 0, transform: 'translateX(' + dx + 'px)' },
+      { opacity: 1, transform: 'translateX(0)' }
+    ], { duration: D * 0.88, delay: D * 0.12, easing: EASE_OUT, fill: 'both' });
+    var recIn = { el: inn, anim: aIn, role: 'in' };
+    st.anims.push(recIn);
+    anims.push(aIn.finished.then(function () {
+      if (gen !== st.gen) return;
+      inn.style.opacity = ''; inn.style.transform = '';
+      try { aIn.cancel(); } catch (e) {}
+      var i = st.anims.indexOf(recIn);
+      if (i >= 0) st.anims.splice(i, 1);
+    }).catch(function () {}));
+
+    return Promise.all(anims);
+  }
+
+  /* 每个面板独立代际与在途记录：设置页与分享卡可先后/交错开合，
+     共享单例会让「关分享」误杀「开设置」的在途动画。 */
+  var sheetStates = new WeakMap();   // panel -> {gen, anim, anchorRect}
+  function sheetState(panel) {
+    var st = sheetStates.get(panel);
+    if (!st) { st = { gen: 0, anim: null, anchorRect: null }; sheetStates.set(panel, st); }
+    return st;
+  }
+
+  function sheetKill(panel) {
+    // 不传 panel：清全部（logout / 401 强制下线路径）
+    if (!panel) {
+      sheetAll.forEach(function (p) { sheetKill(p); });
+      return;
+    }
+    var st = sheetState(panel);
+    st.gen++;
+    if (st.anim) {
+      try { st.anim.cancel(); } catch (e) {}
+      panel.style.opacity = '';
+      panel.style.transform = '';
+      st.anim = null;
+    }
+  }
+  var sheetAll = [];   // 见过的面板（数量级：个位数，线性遍历即可）
+
+  /** 面板是否处于「贴底全宽抽屉」布局（≤650px 断点由 CSS 决定，这里量实际几何） */
+  function sheetIsDrawer(panel) {
+    var r = panel.getBoundingClientRect();
+    var pr = panel.parentNode.getBoundingClientRect();
+    return r.width >= pr.width - 2 && Math.abs(r.bottom - pr.bottom) < 4;
+  }
+
+  /** 从入口矩形推导开合变换：桌面=向入口方向缩拢，移动=底部抽屉滑出 */
+  function sheetTransform(panel, anchorRect, opening) {
+    var r = panel.getBoundingClientRect();
+    if (sheetIsDrawer(panel)) {
+      // 抽屉：滑出屏底（opening 时是「起点」，closing 时是「终点」）
+      var dy = Math.max(60, r.height * 0.6);
+      return { transform: 'translateY(' + dy + 'px)', opacity: opening ? 0.4 : 0 };
+    }
+    var dx = 0, dy = 14;
+    if (anchorRect && anchorRect.width) {
+      // 入口中心相对面板中心的偏移，收敛到 ±40px（入口可能在屏外/侧栏里）
+      var acx = anchorRect.left + anchorRect.width / 2;
+      var acy = anchorRect.top + anchorRect.height / 2;
+      var pcx = r.left + r.width / 2;
+      var pcy = r.top + r.height / 2;
+      dx = Math.max(-40, Math.min(40, (acx - pcx) * 0.12));
+      dy = Math.max(-28, Math.min(28, (acy - pcy) * 0.12));
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) dy = 14;   // 入口与面板几乎同心时保底纵向
+    }
+    return { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0.96)', opacity: 0 };
+  }
+
+  /**
+   * 设置页展开。调用方先摘 hidden 再调本函数（面板须已可量测）。
+   * @param {Element} panel 面板本体（.appearance-panel）
+   * @param {Element|null} anchor 入口元素（settingsEntry），量其视口矩形
+   */
+  function sheetIn(panel, anchor, opts) {
+    opts = opts || {};
+    if (!panel) return Promise.resolve();
+    sheetKill(panel);
+    if (sheetAll.indexOf(panel) < 0) sheetAll.push(panel);
+    var st = sheetState(panel);
+    var gen = st.gen;
+    var D = dur(opts.duration || 'base');
+    st.anchorRect = anchor && anchor.getClientRects().length ? anchor.getBoundingClientRect() : null;
+    if (!D) { panel.style.opacity = ''; panel.style.transform = ''; return Promise.resolve(); }
+    var from = sheetTransform(panel, st.anchorRect, true);
+    var a = panel.animate([
+      { opacity: from.opacity, transform: from.transform },
+      { opacity: 1, transform: 'translate(0,0) scale(1)' }
+    ], { duration: D, easing: EASE_OUT, fill: 'both' });
+    st.anim = a;
+    return a.finished.then(function () {
+      if (gen !== st.gen) return;
+      panel.style.opacity = ''; panel.style.transform = '';
+      try { a.cancel(); } catch (e) {}
+      st.anim = null;
+    }).catch(function () {});
+  }
+
+  /**
+   * 设置页收回（与 sheetIn 互逆：同方向、同曲线族、时长 0.72D）。
+   * 动画结束才回调 onDone（调用方在 onDone 里加 hidden），期间面板保持可见。
+   */
+  function sheetOut(panel, opts) {
+    opts = opts || {};
+    if (!panel) { if (opts.onDone) opts.onDone(); return Promise.resolve(); }
+    sheetKill(panel);
+    var st = sheetState(panel);
+    var gen = st.gen;
+    var D = dur(opts.duration || 'base');
+    if (!D) { if (opts.onDone) opts.onDone(); return Promise.resolve(); }
+    var to = sheetTransform(panel, st.anchorRect, false);
+    var a = panel.animate([
+      { opacity: 1, transform: 'translate(0,0) scale(1)' },
+      { opacity: to.opacity, transform: to.transform }
+    ], { duration: D * 0.72, easing: EASE, fill: 'forwards' });
+    st.anim = a;
+    return a.finished.then(function () {
+      if (gen !== st.gen) return;
+      panel.style.opacity = ''; panel.style.transform = '';
+      try { a.cancel(); } catch (e) {}
+      st.anim = null;
+      if (opts.onDone) opts.onDone();
+    }).catch(function () {});
+  }
+
+  /* ---------- ⑦ 弹窗开合（v2.1 统一：与 sheet 同节奏，开合互逆） ----------
+     成绩结算 / 改密等居中弹窗。入场 base、退场 base×0.72（与 sheetOut 同比例），
+     曲线族一致（入 EASE_OUT / 出 EASE），位移方向互逆（下进下出）。
+     每面板独立在途记录（WeakMap），代际号防「关到一半又开」的竞态。
+     onDone 契约：退场动画结束才回调（调用方在回调里加 hidden）。 */
+  var modalStates = new WeakMap();   // panel -> {gen, anim}
+  function modalState(panel) {
+    var st = modalStates.get(panel);
+    if (!st) { st = { gen: 0, anim: null }; modalStates.set(panel, st); }
+    return st;
+  }
+  function modalKill(panel) {
+    var st = modalState(panel);
+    st.gen++;
+    if (st.anim) {
+      try { st.anim.cancel(); } catch (e) {}
+      panel.style.opacity = '';
+      panel.style.transform = '';
+      st.anim = null;
+    }
+  }
+
   function modalIn(panel, opts) {
     opts = opts || {};
-    var D = dur(opts.duration || 'base');
     if (!panel) return Promise.resolve();
+    modalKill(panel);
+    var st = modalState(panel);
+    var gen = st.gen;
+    var D = dur(opts.duration || 'base');
     if (!D) { panel.style.opacity = ''; panel.style.transform = ''; return Promise.resolve(); }
     var a = panel.animate([
       { opacity: 0, transform: 'translateY(12px) scale(0.985)' },
       { opacity: 1, transform: 'translateY(0) scale(1)' }
     ], { duration: D, easing: EASE_OUT, fill: 'both' });
+    st.anim = a;
     return a.finished.then(function () {
+      if (gen !== st.gen) return;
       try { a.cancel(); } catch (e) {}
       panel.style.opacity = ''; panel.style.transform = '';
+      st.anim = null;
     }).catch(function () {});
   }
 
   function modalOut(panel, opts) {
     opts = opts || {};
-    var D = dur(opts.duration || 'micro');
-    if (!panel) return Promise.resolve();
-    if (!D) return Promise.resolve();
+    if (!panel) { if (opts.onDone) opts.onDone(); return Promise.resolve(); }
+    modalKill(panel);
+    var st = modalState(panel);
+    var gen = st.gen;
+    var D = dur(opts.duration || 'base');
+    if (!D) { if (opts.onDone) opts.onDone(); return Promise.resolve(); }
     var a = panel.animate([
       { opacity: 1, transform: 'translateY(0) scale(1)' },
-      { opacity: 0, transform: 'translateY(8px) scale(0.99)' }
-    ], { duration: D, easing: EASE, fill: 'forwards' });
-    return a.finished.catch(function () {});
+      { opacity: 0, transform: 'translateY(10px) scale(0.985)' }
+    ], { duration: D * 0.72, easing: EASE, fill: 'forwards' });
+    st.anim = a;
+    return a.finished.then(function () {
+      if (gen !== st.gen) return;
+      try { a.cancel(); } catch (e) {}
+      panel.style.opacity = ''; panel.style.transform = '';
+      st.anim = null;
+      if (opts.onDone) opts.onDone();
+    }).catch(function () {});
   }
 
   /* ---------- 导出 ---------- */
@@ -388,15 +663,21 @@
     mode: motionMode, isOff: isOff, isLite: isLite, dur: dur,
     // 通道
     flip: flip, cancelFlies: cancelFlies, dolly: dolly, cancelDolly: cancelDolly,
+    // v2.1 页面级转场
+    pageCross: pageCross, pageKill: pageKill,
+    sheetIn: sheetIn, sheetOut: sheetOut, sheetKill: sheetKill,
     // 合成层
     enter: enter, leave: leave, staggerEnter: staggerEnter,
-    modalIn: modalIn, modalOut: modalOut,
+    modalIn: modalIn, modalOut: modalOut, modalKill: modalKill,
     // 预模糊
     setBackdropBlur: setBackdropBlur, ensureBlurLayer: ensureBlurLayer,
     // 工具
     localRect: localRect,
     // 探针钩子
     _flies: function () { return activeFlies.size; },
-    _dollyGen: function () { return dollyState.gen; }
+    _dollyGen: function () { return dollyState.gen; },
+    _pageGen: function (scope) { return scope ? pageState(scope).gen : null; },
+    _pageAnims: function (scope) { return scope ? pageState(scope).anims.length : null; },
+    _sheetGen: function (panel) { return panel ? sheetState(panel).gen : sheetAll.map(function (p) { return sheetState(p).gen; }); }
   };
 })();

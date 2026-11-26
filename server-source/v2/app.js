@@ -25,7 +25,7 @@ function hasActiveDailySession(){ return !!(D.list.length && D.startedAt && D.id
 
 function switchTab(t){
   if(!currentUser){
-    document.getElementById('authModal').classList.remove('hidden');
+    authShow();
     return false;
   }
   if((t==='class' || t==='admin') && currentUser.role !== 'teacher') return false;
@@ -63,26 +63,34 @@ function switchTab(t){
 
 const TAB_ORDER = ['daily','test','course','library','history','class','admin'];
 let lastAnimatedTab = 'daily';
-/* v2.0 Tab 转场：由统一引擎的合成层通道驱动（WAAPI + 统一缓动/时长）。
-   用 enter() 而非 flip() 克隆层：Tab 页内容是实时渲染的列表（语料库/历史/班级），
-   克隆快照会与真实 DOM 短暂不一致；而 Tab 切换的观感诉求是「方向性位移 + 淡入」，
-   本就不需要几何变形。克隆层留给真正需要形变的静态场景。
-   方向由 TAB_ORDER 索引决定，与 v1.8 的 dir-fwd/dir-back 语义一致。 */
+/* v2.1 Tab 转场：pageCross 双页交叉（旧页反向快速淡出 + 新页错峰方向淡入）。
+   仍走纯合成层而非 flip() 克隆：Tab 页内容是实时渲染的列表（语料库/历史/班级），
+   克隆快照会与真实 DOM 短暂不一致。方向由 TAB_ORDER 索引决定。
+   旧页引用取「上一 Tab 实际可见的元素」：test/course 进行中是 typingSection，
+   否则是对应 page-*。pageCross 内部代际号防连切竞态（旧动画 cancel + 钉终值）。 */
+const TAB_PAGE_MAP = {test:'page-test', course:'page-course', library:'page-library', daily:'page-daily', history:'page-history', class:'page-class', admin:'page-admin'};
+function tabVisibleEl(t){
+  const typing = document.getElementById('typingSection');
+  if((t==='test' || t==='course') && !typing.classList.contains('hidden')) return typing;
+  return document.getElementById(TAB_PAGE_MAP[t]);
+}
 function animatePage(t){
-  const map = {test:'page-test', course:'page-course', library:'page-library', daily:'page-daily', history:'page-history', class:'page-class', admin:'page-admin'};
-  const el = document.getElementById(map[t]);
-  if(!el) return;
+  const el = document.getElementById(TAB_PAGE_MAP[t]);
+  const typing = document.getElementById('typingSection');
+  // 新页实际可见体：test/course 恢复现场时是打字区
+  const inn = ((t==='test' || t==='course') && !typing.classList.contains('hidden')) ? typing : el;
+  if(!inn) return;
+  const out = (lastAnimatedTab !== t) ? tabVisibleEl(lastAnimatedTab) : null;
   const fwd = TAB_ORDER.indexOf(t) >= TAB_ORDER.indexOf(lastAnimatedTab);
   lastAnimatedTab = t;
   const E = window.StudioMotionEngine;
-  // 清掉上一次的方向类，避免 CSS 动画与 WAAPI 叠加
-  el.classList.remove('page-anim','dir-fwd','dir-back');
   if(E && !E.isOff()){
-    E.enter(el, { duration: 'base', dx: fwd ? 14 : -14, dy: 0 });
+    E.pageCross(out, inn, fwd ? 1 : -1, { duration: 'base', dx: 22 });
     return;
   }
-  // off 档或引擎缺失：直切（不加动画类）
-  void el.offsetWidth;
+  // off 档或引擎缺失：直切。旧页显隐已由 switchTab 的 classList.toggle 完成。
+  // 但仍要清在途动画（切档瞬间可能有上一轮 full/lite 的动画在飞）。
+  if(E) E.pageKill(inn.parentNode);
 }
 function randItem(a){ return a[Math.floor(Math.random()*a.length)]; }
 
@@ -414,8 +422,11 @@ function passageCatalog(){
     .concat(CORPUS.listenings.map((r,i)=>({...r,cat:'听力原文',idx:CORPUS.readings.length+i})));
 }
 function showPassages(){
-  document.getElementById('courseMenu').classList.add('hidden');
-  document.getElementById('passageMenu').classList.remove('hidden');
+  const menu = document.getElementById('courseMenu');
+  const passages = document.getElementById('passageMenu');
+  const wasMenuVisible = !menu.classList.contains('hidden');
+  menu.classList.add('hidden');
+  passages.classList.remove('hidden');
   const list = document.getElementById('passageList');
   const frag = document.createDocumentFragment();
   for(const p of passageCatalog()){
@@ -429,6 +440,14 @@ function showPassages(){
   }
   list.innerHTML = '';
   list.appendChild(frag);
+  /* v2.1 课程内导航：菜单→文章列表视为「进入下一级」，前进方向。
+     pageCross 需要旧页仍可见才能做退场，故先摘 hidden 再转场（旧页由引擎收尾隐藏）。
+     wasMenuVisible=false（如重练回列表）时 out 传 null，只做入场。 */
+  const E = window.StudioMotionEngine;
+  if(E && !E.isOff()){
+    if(wasMenuVisible) menu.classList.remove('hidden');
+    E.pageCross(wasMenuVisible ? menu : null, passages, 1, { duration: 'base', dx: 22 });
+  }
 }
 /* 高级课程固定 level='article'、tokens=null —— 整篇连排，不做单词分卡。
    retryAction 必须闭包捕获 p：重练要回到同一篇，而不是重抽一篇。 */
@@ -438,10 +457,20 @@ function startPassage(p){
   retryAction = () => startPassage(p);
 }
 function backToMenu(){
-  document.getElementById('passageMenu').classList.add('hidden');
-  document.getElementById('courseMenu').classList.remove('hidden');
+  const menu = document.getElementById('courseMenu');
+  const passages = document.getElementById('passageMenu');
+  const wasPassagesVisible = !passages.classList.contains('hidden');
+  passages.classList.add('hidden');
+  menu.classList.remove('hidden');
   document.getElementById('page-course').classList.remove('hidden');
   document.getElementById('typingSection').classList.add('hidden');
+  /* v2.1 返回上级：与 showPassages 互逆（后退方向），开与关呼应。
+     从打字区退出（closeModal 路径）时列表已隐藏，只做菜单入场。 */
+  const E = window.StudioMotionEngine;
+  if(E && !E.isOff()){
+    if(wasPassagesVisible) passages.classList.remove('hidden');
+    E.pageCross(wasPassagesVisible ? passages : null, menu, -1, { duration: 'base', dx: 22 });
+  }
 }
 
 /* 进入练习时要让位的三个菜单页。顺序无关（都只是加 hidden），
@@ -711,6 +740,8 @@ async function finish(reason){
   showRecordBadge('mdRecord', checkPersonalBest(wpm));
   tip.classList.add('hidden');
   modal.classList.remove('hidden');
+  // v2.1：结算弹窗入场走引擎（与设置/分享同节奏），CSS popIn 已移除
+  if(window.StudioMotionEngine) StudioMotionEngine.modalIn(modal.querySelector('.box'));
   if(wpm && rec.chars){
     const box = modal.querySelector('.box');
     const r = box ? box.getBoundingClientRect() : null;
@@ -722,11 +753,24 @@ async function finish(reason){
 }
 function closeModal(){
   resultSequence++;
-  document.getElementById('modal').classList.add('hidden');
+  const modal = document.getElementById('modal');
+  const E = window.StudioMotionEngine;
+  const box = modal.querySelector('.box');
+  /* v2.1 结算弹窗退场：视觉收回（modalOut）与状态清零并行 ——
+     resetSession/页面切换立即执行（重练等后续动作依赖新状态），
+     只有 modal 的 hidden 等动画结束再加。重练时 beginSession 会立即
+     重新打开弹窗，modalIn 的代际号会取消在途退场，互不干扰。 */
   resetSession(true);
   document.getElementById('typingSection').classList.add('hidden');
   if(document.getElementById('tab-course').classList.contains('active')) backToMenu();
   else document.getElementById('page-test').classList.remove('hidden');
+  if(E && !E.isOff() && box && !modal.classList.contains('hidden')){
+    /* 代际守卫：onDone 只在退场自然结束时被调（被 modalKill/新 modalIn 中断则不调），
+       故回调里直接加 hidden 即可，无需再验状态 —— 重练路径不会走到这里。 */
+    E.modalOut(box, { onDone: () => modal.classList.add('hidden') });
+  }else{
+    modal.classList.add('hidden');
+  }
 }
 /* 重练：先关弹窗再重放上次动作。顺序不可换 ——
    closeModal 内部会 resetSession(true) 并推进 resultSequence（作废在途的保存回执），
@@ -1104,7 +1148,7 @@ function netErrMsg(e){
 function roleLabel(role){ return role === 'teacher' ? '教师' : '学生'; }
 function requireLogin(){
   if(currentUser) return true;
-  document.getElementById('authModal').classList.remove('hidden');
+  authShow();
   return false;
 }
 function setAuthMode(mode){
@@ -1117,27 +1161,30 @@ function setAuthMode(mode){
   document.getElementById('authPassword').setAttribute('autocomplete', mode==='login' ? 'current-password' : 'new-password');
   document.getElementById('authError').textContent = '';
 }
-let authExitTimer = null;
-/* v2.0 登录弹窗退场：时长由引擎驱动，与 CSS 的 var(--dur-micro) 同源。
-   原实现硬编码 setTimeout(done,230)，而 CSS 归并后 authOut 已是 --dur-micro(180ms)，
-   动画播完弹窗还多挂 50ms —— 时长不同步的真实缺陷，此处修正。
-   lite 档不再直接跳过动画（原只认 full），改为按引擎降级时长播放短动画。 */
+/* v2.1：登录弹窗统一到 modal 通道（与结算/改密同节奏）。
+   v2.0 时退场已是引擎时长 + CSS authOut，但入场仍是 CSS popIn（只认 full、时长 base），
+   开 base / 关 micro 不对称。v2.1 全部改走 modalIn/modalOut：
+   入场 base EASE_OUT，退场 base×0.72 EASE，位移互逆，onDone 契约（自然结束才隐藏）。
+   所有「摘 hidden 显示登录框」的入口统一走 authShow()，避免漏接入场动画。 */
+let authClosing = false;
+function authShow(){
+  const modal = document.getElementById('authModal');
+  const wasHidden = modal.classList.contains('hidden');
+  authClosing = false;
+  modal.classList.remove('hidden');
+  const E = window.StudioMotionEngine;
+  if(E && wasHidden) E.modalIn(modal.querySelector('.auth-layout'));
+}
 function hideAuthModalAnimated(){
   const modal = document.getElementById('authModal');
   const layout = modal.querySelector('.auth-layout');
-  const done = ()=>{
-    modal.classList.add('hidden');
-    if(layout) layout.classList.remove('auth-exit');
-  };
-  clearTimeout(authExitTimer);
+  if(modal.classList.contains('hidden') || authClosing) return;
+  const finish = ()=>{ authClosing = false; modal.classList.add('hidden'); };
   const E = window.StudioMotionEngine;
-  const D = E ? E.dur('micro') : 0;
-  if(D && layout){
-    layout.classList.add('auth-exit');
-    authExitTimer = setTimeout(done, D);
-  }else{
-    done();
-  }
+  if(E && !E.isOff() && layout){
+    authClosing = true;
+    E.modalOut(layout, { onDone: finish });
+  }else finish();
 }
 async function submitAuth(){
   const username = document.getElementById('authUsername').value.trim();
@@ -1181,13 +1228,31 @@ const ALL_PAGES = ['admin','class','course','library','history','test','daily'];
 
 function logoutCloseOverlays(){
   // 顺序与 v1.8 一致：settings/share 先隐藏 → resultSequence++ → modal 隐藏
-  ['settingsModal','shareModal'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.classList.add('hidden');
-  });
+  // v2.1：全部浮层走强制出口（清在途动画 + 钉终值），避免 logout 后残影
+  settingsForceHide();
+  shareForceHide();
   resultSequence++;   // 递增以作废在途的成绩渲染回调
+  const E = window.StudioMotionEngine;
   const m = document.getElementById('modal');
-  if(m) m.classList.add('hidden');
+  if(m){
+    const box = m.querySelector('.box');
+    if(E && box) E.modalKill(box);
+    m.classList.add('hidden');
+  }
+  // 改密弹窗与登录弹窗同样可能有在途开/合动画，一并清掉再定终态
+  const pw = document.getElementById('pwModal');
+  if(pw){
+    const card = pw.querySelector('.auth-card');
+    if(E && card) E.modalKill(card);
+    pw.classList.add('hidden');
+    pwClosing = false;
+  }
+  const auth = document.getElementById('authModal');
+  if(auth){
+    const layout = auth.querySelector('.auth-layout');
+    if(E && layout) E.modalKill(layout);
+    authClosing = false;   // 终态由 logoutRepaintAndNavigate 的 authShow 决定
+  }
 }
 function logoutClearSessions(){
   resetSession(true);
@@ -1221,7 +1286,7 @@ function logoutRepaintAndNavigate(){
   selectStudioTab('daily');
   currentTab = 'daily';
   document.getElementById('page-daily').classList.remove('hidden');
-  document.getElementById('authModal').classList.remove('hidden');
+  authShow();
 }
 
 async function logout(){
@@ -1251,7 +1316,9 @@ async function loadSession(){
     currentUser = data.user || null;
   }catch(e){ currentUser = null; }
   updateAuthUI();
-  document.getElementById('authModal').classList.toggle('hidden', !!currentUser);
+  // 启动定终态：已登录立即隐藏（无动画），未登录走统一入场
+  if(currentUser) document.getElementById('authModal').classList.add('hidden');
+  else authShow();
   if(currentUser){ syncFavsFromServer(); syncPrefsFromServer(); keyErrLoad(); srsLoad(); switchTab('daily'); }
   // 恢复上次的键盘视图偏好（未登录也可用指法视图）
   let savedKb = 'finger';
@@ -2503,9 +2570,34 @@ async function openShareCard(rec){
     currentUser ? currentUser.display_name : '打字练习'));
   shareDataUrl = cv.toDataURL('image/png');
   document.getElementById('shareImg').src = shareDataUrl;
-  document.getElementById('shareModal').classList.remove('hidden');
+  const modal = document.getElementById('shareModal');
+  shareClosing = false;
+  modal.classList.remove('hidden');
+  /* v2.1：分享卡与设置页共用 sheet 通道（每面板独立代际，互不误杀）。
+     无固定入口元素，anchor 传 null → 保底纵向展开，节奏与设置页一致。 */
+  const E = window.StudioMotionEngine;
+  if(E) E.sheetIn(modal.querySelector('.appearance-panel'), null);
 }
+let shareClosing = false;
 function closeShareCard(){
+  const modal = document.getElementById('shareModal');
+  if(modal.classList.contains('hidden') || shareClosing) return;
+  const E = window.StudioMotionEngine;
+  const panel = modal.querySelector('.appearance-panel');
+  const finish = () => { shareClosing = false; modal.classList.add('hidden'); };
+  if(E && !E.isOff() && panel){
+    shareClosing = true;
+    E.sheetOut(panel, { onDone: finish });
+  }else{
+    finish();
+  }
+}
+/* 401 / logout 异常路径：立即隐藏并清在途动画 */
+function shareForceHide(){
+  const E = window.StudioMotionEngine;
+  const panel = document.querySelector('#shareModal .appearance-panel');
+  if(E && panel) E.sheetKill(panel);
+  shareClosing = false;
   document.getElementById('shareModal').classList.add('hidden');
 }
 function downloadShareCard(){
@@ -2571,27 +2663,62 @@ function settingsSection(which){
   });
   if(settingsPane === 'account') syncAccountUI();
 }
+/* v2.1 设置页开合：sheetIn/sheetOut 互逆呼应（demo 的 openApp/closeApp 语义）。
+   开：面板从入口卡片（settingsEntry）方向展开；关：沿同一曲线收回入口方向。
+   关闭动画期间面板保持可见（不加 hidden），动画结束才真正隐藏 ——
+   这是「开与关相互呼应」的关键：v2.0 关闭是瞬隐，观感断裂。
+   settingsClosing 防重入：动画期间再点关闭/Esc 直接忽略，由代际号兜底。 */
+let settingsClosing = false;
+/* 401 强制下线等异常路径：不等收回动画，立即隐藏并清在途动画与内联样式。
+   正常关闭一律走 closeSettings()（带动画），此函数只供会话失效路径使用。 */
+function settingsForceHide(){
+  const E = window.StudioMotionEngine;
+  if(E) E.sheetKill();
+  settingsClosing = false;
+  document.getElementById('settingsModal').classList.add('hidden');
+}
 function openSettings(which){
   if(which === 'account' && !requireLogin()) return;
   settingsSection(which || settingsPane);
-  document.getElementById('settingsModal').classList.remove('hidden');
+  const modal = document.getElementById('settingsModal');
+  const wasHidden = modal.classList.contains('hidden');
+  settingsClosing = false;
+  modal.classList.remove('hidden');
+  const E = window.StudioMotionEngine;
+  if(E && wasHidden){
+    const panel = modal.querySelector('.appearance-panel');
+    const anchor = document.getElementById('settingsEntry');
+    E.sheetIn(panel, anchor);
+  }
 }
 function closeSettings(){
-  const wasOpen = !document.getElementById('settingsModal').classList.contains('hidden');
-  document.getElementById('settingsModal').classList.add('hidden');
-  if(!wasOpen) return;
-  const mobile = window.matchMedia('(max-width:930px)').matches;
-  if(mobile && !document.getElementById('sidebar').classList.contains('open')) openSidebar();
-  // 侧栏 visibility 过渡约 180ms，未结束时元素不可聚焦：立即尝试一次，过渡结束后兜底补焦
-  const restore = () => {
-    if(!document.getElementById('settingsModal').classList.contains('hidden')) return;
-    const entry = document.getElementById('settingsEntry');
-    if(entry && entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
-    const menu = document.getElementById('menuToggle');
-    if(menu.getClientRects().length) menu.focus({preventScroll:true});
+  const modal = document.getElementById('settingsModal');
+  const wasOpen = !modal.classList.contains('hidden');
+  if(!wasOpen || settingsClosing) return;
+  const E = window.StudioMotionEngine;
+  const panel = modal.querySelector('.appearance-panel');
+  const finish = () => {
+    settingsClosing = false;
+    modal.classList.add('hidden');
+    const mobile = window.matchMedia('(max-width:930px)').matches;
+    if(mobile && !document.getElementById('sidebar').classList.contains('open')) openSidebar();
+    // 侧栏 visibility 过渡约 180ms，未结束时元素不可聚焦：立即尝试一次，过渡结束后兜底补焦
+    const restore = () => {
+      if(!document.getElementById('settingsModal').classList.contains('hidden')) return;
+      const entry = document.getElementById('settingsEntry');
+      if(entry && entry.getClientRects().length){ entry.focus({preventScroll:true}); return; }
+      const menu = document.getElementById('menuToggle');
+      if(menu.getClientRects().length) menu.focus({preventScroll:true});
+    };
+    restore();
+    setTimeout(restore, 220);
   };
-  restore();
-  setTimeout(restore, 220);
+  if(E && !E.isOff() && panel){
+    settingsClosing = true;
+    E.sheetOut(panel, { onDone: finish });
+  }else{
+    finish();
+  }
 }
 function accountMsg(id, text, ok){
   const el = document.getElementById(id);
@@ -2736,7 +2863,7 @@ async function renderHistory(){
   try{
     const res = await fetch('/api/records?scope=mine&limit=60');
     if(account!==currentUser || request!==historyRequest) return;
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); settingsForceHide(); shareForceHide(); authShow(); return; }
     if(!res.ok) throw new Error();
     const data = await res.json();
     if(account!==currentUser || request!==historyRequest) return;
@@ -2872,7 +2999,7 @@ function drawChart(h){
   chartLayers.legend(ctx, g, pal);
 }
 function clearHistory(){
-  if(!currentUser){ document.getElementById('authModal').classList.remove('hidden'); return; }
+  if(!currentUser){ authShow(); return; }
   if(confirm('确定要清空「'+getStudent()+'」的全部练习记录吗？此操作不可恢复。')){
     fetch('/api/records', {method:'DELETE'})
       .then(async res=>{
@@ -2890,7 +3017,7 @@ async function renderClass(){
       fetch('/api/summary'),
       fetch('/api/records?scope=class&limit=30')
     ]);
-    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res1.status===401 || res2.status===401){ currentUser=null; updateAuthUI(); settingsForceHide(); authShow(); return; }
     sum = await res1.json(); rec = await res2.json();
   }catch(e){}
   const st = sum.students || [];
@@ -2938,8 +3065,13 @@ const DAILY_VIEWS = [
   ['notebook', 'dailyTabNotebook', 'dailyNotebookPanel'],
   ['keys',     'dailyTabKeys',     'dailyKeysPanel']
 ];
+/* 分段顺序即方向：练习→生词本→错键分析为前进，反之为后退。 */
+const DAILY_VIEW_ORDER = ['practice', 'notebook', 'keys'];
+let lastDailyView = 'practice';
 function dailyView(view){
   const v = (view==='notebook' || view==='keys') ? view : 'practice';
+  const prev = lastDailyView;
+  lastDailyView = v;
   DAILY_VIEWS.forEach(([key, tabId, paneId])=>{
     document.getElementById(tabId).classList.toggle('active', key === v);
     document.getElementById(paneId).classList.toggle('hidden', key !== v);
@@ -2950,6 +3082,18 @@ function dailyView(view){
     keyErrFlush();
     kbHeatPaint(); kbHeatSummary();   // 先按本地数据立即着色，避免等网络的空白帧
     if(currentUser) keyErrLoad();
+  }
+  /* v2.1：三分段切换与 Tab/课程同走 pageCross（scope 是 #page-daily，
+     与 Tab 级作用域独立，互不误杀在途动画）。同段重入只做状态刷新不转场。
+     旧页需仍可见才能退场，故先摘 hidden 再交给引擎收尾隐藏。 */
+  if(prev !== v){
+    const inn = document.getElementById(DAILY_VIEWS.find(x=>x[0]===v)[2]);
+    const out = document.getElementById(DAILY_VIEWS.find(x=>x[0]===prev)[2]);
+    const E = window.StudioMotionEngine;
+    if(E && !E.isOff()){
+      out.classList.remove('hidden');
+      E.pageCross(out, inn, DAILY_VIEW_ORDER.indexOf(v) > DAILY_VIEW_ORDER.indexOf(prev) ? 1 : -1, { duration: 'base', dx: 18 });
+    }
   }
 }
 function getDailyPool(topic){
@@ -3674,7 +3818,7 @@ async function loadAdmin(){
   const box = document.getElementById('adminStudents');
   try{
     const res = await fetch('/api/admin/students');
-    if(res.status===401){ currentUser=null; updateAuthUI(); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('shareModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('hidden'); return; }
+    if(res.status===401){ currentUser=null; updateAuthUI(); settingsForceHide(); shareForceHide(); authShow(); return; }
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || '加载失败');
     renderAdminStudents(data.students || []);
@@ -3768,9 +3912,27 @@ function openPwModal(id, name){
   document.getElementById('pwTarget').textContent = '为「'+name+'」设置新密码';
   document.getElementById('pwNew').value='';
   document.getElementById('pwError').textContent='';
-  document.getElementById('pwModal').classList.remove('hidden');
+  const modal = document.getElementById('pwModal');
+  pwClosing = false;
+  modal.classList.remove('hidden');
+  // v2.1：改密弹窗与结算弹窗同通道同节奏
+  if(window.StudioMotionEngine) StudioMotionEngine.modalIn(modal.querySelector('.auth-card'));
 }
-function closePwModal(){ pwStudentId=null; document.getElementById('pwModal').classList.add('hidden'); }
+let pwClosing = false;
+function closePwModal(){
+  pwStudentId = null;
+  const modal = document.getElementById('pwModal');
+  if(modal.classList.contains('hidden') || pwClosing) return;
+  const E = window.StudioMotionEngine;
+  const card = modal.querySelector('.auth-card');
+  const finish = () => { pwClosing = false; modal.classList.add('hidden'); };
+  if(E && !E.isOff() && card){
+    pwClosing = true;
+    E.modalOut(card, { onDone: finish });
+  }else{
+    finish();
+  }
+}
 async function adminSetPassword(){
   const password = document.getElementById('pwNew').value;
   const err = document.getElementById('pwError');
