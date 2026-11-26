@@ -155,6 +155,31 @@ def init_db():
             PRIMARY KEY(user_id, word)
         )""")
         c.execute("CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id)")
+        # F4 间隔重复：给生词本加复习调度字段（简化 SM-2）。
+        # 旧数据平滑迁移：新列默认 due_at=0 => 全部立即到期，首次进入复习即可开始排程。
+        fcols = [r[1] for r in c.execute("PRAGMA table_info(favorites)").fetchall()]
+        for col, ddl in (
+            ("ease", "ALTER TABLE favorites ADD COLUMN ease REAL NOT NULL DEFAULT 2.5"),
+            ("interval", "ALTER TABLE favorites ADD COLUMN interval REAL NOT NULL DEFAULT 0"),
+            ("reps", "ALTER TABLE favorites ADD COLUMN reps INTEGER NOT NULL DEFAULT 0"),
+            ("lapses", "ALTER TABLE favorites ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0"),
+            ("due_at", "ALTER TABLE favorites ADD COLUMN due_at INTEGER NOT NULL DEFAULT 0"),
+            ("last_review", "ALTER TABLE favorites ADD COLUMN last_review INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if col not in fcols:
+                c.execute(ddl)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_fav_due ON favorites(user_id, due_at)")
+        # F2 错键热力图：按「应打字符」累计错误次数与总敲击次数，用于算错误率。
+        # 只存单字符（含空格），不做任何文本内容留存。
+        c.execute("""CREATE TABLE IF NOT EXISTS keyerrors(
+            user_id INTEGER NOT NULL,
+            ch TEXT NOT NULL,
+            errs INTEGER NOT NULL DEFAULT 0,
+            hits INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY(user_id, ch)
+        )""")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_keyerr_user ON keyerrors(user_id)")
         # 个性化偏好：随账号同步（主题色/深浅/动效/音效/目标等），本机缓存仅用于首屏防闪烁。
         c.execute("""CREATE TABLE IF NOT EXISTS prefs(
             user_id INTEGER NOT NULL,
@@ -602,6 +627,164 @@ def api_favs_list(user):
     return {"favs": [r["word"] for r in rows]}
 
 
+# ---------------- F4 间隔重复（简化 SM-2） ----------------
+
+# 质量分：0=忘了 1=模糊 2=记得。映射到 SM-2 的 q(0..5)。
+SRS_QUALITY = {"again": 0, "hard": 3, "good": 4, "easy": 5}
+
+
+def srs_next(ease, interval, reps, lapses, quality, now):
+    """返回 (ease, interval, reps, lapses, due_at)。interval 单位：天。
+
+    简化 SM-2：
+      - again(q<3)：reps 归零、lapses+1、ease 下调 0.2、10 分钟后再见（当日重现）
+      - hard/good/easy：首次 1 天、第二次 3 天（easy 直接 4 天），其后 interval*ease
+      - ease 下限 1.3、上限 3.2；interval 上限 365 天
+    """
+    q = SRS_QUALITY.get(quality, 4)
+    ease = float(ease or 2.5)
+    interval = float(interval or 0)
+    reps = int(reps or 0)
+    lapses = int(lapses or 0)
+    if q < 3:
+        reps = 0
+        lapses += 1
+        ease = max(1.3, ease - 0.2)
+        return ease, 0.0, reps, lapses, now + 600  # 10 分钟后重现
+    # 正常推进
+    if reps == 0:
+        interval = 4.0 if q == 5 else 1.0
+    elif reps == 1:
+        interval = 6.0 if q == 5 else 3.0
+    else:
+        mult = ease * (1.15 if q == 5 else (0.8 if q == 3 else 1.0))
+        interval = max(1.0, interval * mult)
+    reps += 1
+    # ease 调整（SM-2 公式的简化版）
+    ease = ease + (0.1 if q == 5 else (-0.15 if q == 3 else 0.0))
+    ease = min(3.2, max(1.3, ease))
+    interval = min(365.0, interval)
+    return ease, interval, reps, lapses, now + int(interval * 86400)
+
+
+def api_srs_get(user):
+    """返回全部生词的调度状态 + 到期数量。"""
+    now = int(time.time())
+    with db() as c:
+        rows = c.execute(
+            "SELECT word, ease, interval, reps, lapses, due_at, last_review "
+            "FROM favorites WHERE user_id=? ORDER BY due_at, word", (user["id"],)).fetchall()
+    items = [{"word": r["word"], "ease": round(r["ease"], 3), "interval": round(r["interval"], 3),
+              "reps": r["reps"], "lapses": r["lapses"], "due_at": r["due_at"],
+              "last_review": r["last_review"]} for r in rows]
+    due = [x["word"] for x in items if x["due_at"] <= now]
+    return {"items": items, "due": due, "dueCount": len(due), "total": len(items), "now": now}
+
+
+def api_srs_review(user, body):
+    """提交一次复习结果，更新该词调度。"""
+    word = (body.get("word") or "").strip() if isinstance(body.get("word"), str) else ""
+    quality = body.get("quality")
+    if not word or len(word) > 64:
+        raise ApiError("单词格式无效", 400)
+    if quality not in SRS_QUALITY:
+        raise ApiError("复习评价无效", 400)
+    now = int(time.time())
+    with db() as c:
+        row = c.execute("SELECT ease, interval, reps, lapses FROM favorites "
+                        "WHERE user_id=? AND word=?", (user["id"], word)).fetchone()
+        if not row:
+            raise ApiError("该词不在生词本中", 404)
+        ease, interval, reps, lapses, due = srs_next(
+            row["ease"], row["interval"], row["reps"], row["lapses"], quality, now)
+        c.execute("UPDATE favorites SET ease=?, interval=?, reps=?, lapses=?, due_at=?, last_review=? "
+                  "WHERE user_id=? AND word=?",
+                  (ease, interval, reps, lapses, due, now, user["id"], word))
+    return {"ok": True, "word": word, "ease": round(ease, 3), "interval": round(interval, 3),
+            "reps": reps, "lapses": lapses, "due_at": due}
+
+
+def api_srs_reset(user, body):
+    """重置某词（或全部）的复习进度，使其立即到期。"""
+    now = int(time.time())
+    word = (body.get("word") or "").strip() if isinstance(body.get("word"), str) else ""
+    with db() as c:
+        if body.get("all") is True:
+            c.execute("UPDATE favorites SET ease=2.5, interval=0, reps=0, lapses=0, due_at=0, last_review=0 "
+                      "WHERE user_id=?", (user["id"],))
+        elif word:
+            c.execute("UPDATE favorites SET ease=2.5, interval=0, reps=0, lapses=0, due_at=0, last_review=0 "
+                      "WHERE user_id=? AND word=?", (user["id"], word))
+        else:
+            raise ApiError("缺少单词", 400)
+    return {"ok": True}
+
+
+# ---------------- F2 错键热力图 ----------------
+
+def api_keyerrors_get(user):
+    now = int(time.time())
+    with db() as c:
+        rows = c.execute("SELECT ch, errs, hits, updated_at FROM keyerrors WHERE user_id=? "
+                         "ORDER BY errs DESC, ch", (user["id"],)).fetchall()
+    items = []
+    for r in rows:
+        hits = int(r["hits"] or 0)
+        errs = int(r["errs"] or 0)
+        items.append({"ch": r["ch"], "errs": errs, "hits": hits,
+                      "rate": round(errs / hits, 4) if hits > 0 else 0.0,
+                      "updated_at": r["updated_at"]})
+    return {"items": items, "totalErrs": sum(x["errs"] for x in items),
+            "totalHits": sum(x["hits"] for x in items), "now": now}
+
+
+def api_keyerrors_put(user, body):
+    """批量累计敲击统计。body: {keys: [{ch, errs, hits}, ...]}
+
+    只接受单字符（含空格），单次最多 128 项，数值上限防脏数据。
+    """
+    keys = body.get("keys")
+    if not isinstance(keys, list) or not keys:
+        raise ApiError("缺少按键统计", 400)
+    if len(keys) > 128:
+        raise ApiError("单次上报过多", 400)
+    now = int(time.time())
+    clean = []
+    for k in keys:
+        if not isinstance(k, dict):
+            continue
+        ch = k.get("ch")
+        if not isinstance(ch, str) or len(ch) != 1:
+            continue
+        # 只存可打印 ASCII（打字素材范围），拒绝控制字符与换行
+        if not (0x20 <= ord(ch) <= 0x7E):
+            continue
+        try:
+            errs = max(0, min(100000, int(k.get("errs") or 0)))
+            hits = max(0, min(100000, int(k.get("hits") or 0)))
+        except (TypeError, ValueError):
+            continue
+        if errs == 0 and hits == 0:
+            continue
+        clean.append((ch, errs, hits))
+    if not clean:
+        raise ApiError("按键统计无效", 400)
+    with db() as c:
+        for ch, errs, hits in clean:
+            c.execute(
+                "INSERT INTO keyerrors(user_id,ch,errs,hits,updated_at) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(user_id,ch) DO UPDATE SET "
+                "errs=errs+excluded.errs, hits=hits+excluded.hits, updated_at=excluded.updated_at",
+                (user["id"], ch, errs, hits, now))
+    return {"ok": True, "accepted": len(clean)}
+
+
+def api_keyerrors_reset(user):
+    with db() as c:
+        c.execute("DELETE FROM keyerrors WHERE user_id=?", (user["id"],))
+    return {"ok": True}
+
+
 def api_favs_update(user, body):
     if body.get("clear") is True:
         with db() as c:
@@ -835,6 +1018,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(api_favs_list(self.require_user()))
                 if path == "/api/prefs":
                     return self.send_json(api_prefs_get(self.require_user()))
+                if path == "/api/srs":
+                    return self.send_json(api_srs_get(self.require_user()))
+                if path == "/api/keyerrors":
+                    return self.send_json(api_keyerrors_get(self.require_user()))
                 if path == "/api/streak":
                     return self.send_json(api_streak(self.require_user()))
                 if path == "/api/summary":
@@ -900,6 +1087,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(api_favs_update(self.require_user(), self.read_json()))
             if path == "/api/prefs":
                 return self.send_json(api_prefs_put(self.require_user(), self.read_json()))
+            if path == "/api/srs/review":
+                return self.send_json(api_srs_review(self.require_user(), self.read_json()))
+            if path == "/api/srs/reset":
+                return self.send_json(api_srs_reset(self.require_user(), self.read_json()))
+            if path == "/api/keyerrors":
+                return self.send_json(api_keyerrors_put(self.require_user(), self.read_json()))
+            if path == "/api/keyerrors/reset":
+                return self.send_json(api_keyerrors_reset(self.require_user()))
             if path == "/api/admin/students":
                 return self.send_json(admin_create_student(self.require_user(), self.read_json()))
             if path.startswith("/api/admin/students/"):

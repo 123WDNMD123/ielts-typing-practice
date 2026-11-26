@@ -121,8 +121,19 @@
 })();
 </script>
 <style id="studioStyles">
+/* ===== 音标专用字体（自带子集，跨平台一致）=====
+   缺陷根因：音标原用 --mono 栈（ui-monospace/SFMono-Regular/Consolas/monospace），
+   而 IPA 扩展区字符在多数等宽字体里并不存在——实测 Lucida Console 缺 14 个、
+   Cascadia Mono 缺 5 个（含最高频的 U+02C8 ˈ）、Georgia 缺 14 个。
+   Windows 靠系统「字体链接」自动替换才看着正常；Android / iOS / 精简 Linux 没有
+   这套机制，monospace 落到 Roboto Mono / Courier 就直接渲染成豆腐块（▯）。
+   注意 Noto Sans SC 也不含 IPA（只覆盖中文），故不能靠系统中文字体兜底。
+   解法：内嵌 DejaVu Sans Mono 子集（OFL-1.1，仅保留词表实际用到的 47 个字符，
+   woff2 共 7.3KB），base64 data URI 不新增网络请求、无跨域、离线可用。
+   unicode-range 限定只在音标区段生效，打字区仍用原 --mono，等宽对齐不受影响。 */
+@font-face{font-family:StudioPhonetic;src:url(data:font/woff2;base64,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) format('woff2');font-weight:400 700;font-style:normal;font-display:swap;unicode-range:U+0020-007E,U+00E6,U+00F0,U+014B,U+0250-02AF,U+02B0-02FF,U+03B8}
 /* Type Studio: colors, shell, study components, responsive layouts. */
-:root{color-scheme:light;--bg:#f4f5ef;--card:#fffefa;--surface:#eef0e7;--border:#dce1d4;--text:#1d2b24;--muted:#59685e;--primary:#285c42;--primary-soft:#e0ecde;--on-primary:#fff;--accent:#5c7028;--ok:#2d6949;--ok-soft:#e0eee1;--err:#9a3d38;--err-soft:#f7e5e0;--hero:#e6edda;--primary-glow:#285c4224;--primary-edge:#285c4261;--shadow:0 7px 24px #263a2210;--radius:17px;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,"Microsoft YaHei","PingFang SC",sans-serif;--rail-width:224px;--key-pinky:#f8e5e5;--key-ring:#faebd9;--key-middle:#f6efcb;--key-index:#dce9d9;--key-right:#e0eafa;--key-violet:#ebe4f6}
+:root{color-scheme:light;--bg:#f4f5ef;--card:#fffefa;--surface:#eef0e7;--border:#dce1d4;--text:#1d2b24;--muted:#59685e;--primary:#285c42;--primary-soft:#e0ecde;--on-primary:#fff;--accent:#5c7028;--ok:#2d6949;--ok-soft:#e0eee1;--err:#9a3d38;--err-soft:#f7e5e0;--hero:#e6edda;--primary-glow:#285c4224;--primary-edge:#285c4261;--shadow:0 7px 24px #263a2210;--radius:17px;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--phonetic:StudioPhonetic,ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,"Microsoft YaHei","PingFang SC",sans-serif;--rail-width:224px;--key-pinky:#f8e5e5;--key-ring:#faebd9;--key-middle:#f6efcb;--key-index:#dce9d9;--key-right:#e0eafa;--key-violet:#ebe4f6}
 :root[data-theme="dark"]{color-scheme:dark;--bg:#0b0e0c;--card:#151b17;--surface:#101411;--border:#2c352e;--text:#ecf0ed;--muted:#a4aba6;--primary:#bede9a;--primary-soft:#2a3c2c;--on-primary:#182517;--accent:#d5e294;--ok:#a7d8aa;--ok-soft:#273c30;--err:#ffaaa0;--err-soft:#492b26;--hero:#1b231d;--primary-glow:#bede9a29;--primary-edge:#bede9a61;--shadow:0 10px 30px #00000066;--key-pinky:#432e33;--key-ring:#453b2c;--key-middle:#41402a;--key-index:#2d4436;--key-right:#2d3e53;--key-violet:#39334f}
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--bg);scroll-padding-top:76px}
@@ -317,15 +328,73 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
 .card{min-width:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:clamp(16px,2vw,25px);margin-bottom:16px;box-shadow:var(--shadow)}.panel-header{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:16px}.panel-header h2{margin:2px 0 0}.panel-kicker{color:var(--primary);font-size:10px}.panel-chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:var(--primary-soft);border-radius:20px;color:var(--text);padding:5px 9px;font-size:11px;font-weight:650}
 .daily-tabs,.auth-tabs{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:4px;margin-bottom:14px}.daily-tabs button,.auth-tabs button,.library-filter{border:1px solid transparent;border-radius:7px;min-height:36px;padding:6px 14px;color:var(--muted);background:none;font-weight:650}.daily-tabs button.active,.auth-tabs button.active,.library-filter.active{background:var(--primary-soft);color:var(--text);border-color:var(--border)}
 .practice-grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px;align-items:start}.daily-settings{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px}.daily-settings select{min-height:36px;padding:5px 8px;max-width:100%}.daily-settings .btn{min-height:36px;padding:6px 9px}.daily-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.daily-stats{min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;flex:1}.daily-stats .cell,#liveStats>div,.stat-cards .cell,.ds-cell,#modal .cell{min-width:0;border-radius:10px;background:var(--surface);border:1px solid var(--border);padding:8px 10px}.daily-stats b,.stat-cards b,.ds-cell b,#modal .cell b,#liveStats b{display:block;color:var(--primary);font:750 21px/1.2 var(--mono);font-variant-numeric:tabular-nums}.daily-stats .acc b,#liveStats .acc b{color:var(--ok)}.cell span,.ds-cell span,#liveStats>div{font-size:11px;color:var(--muted)}
-.daily-word-box{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:172px;padding:16px 10px}.daily-word{min-height:54px;font:750 clamp(24px,4.1vw,48px)/1.25 var(--mono);letter-spacing:.02em;overflow-wrap:anywhere;cursor:text;user-select:none}.daily-meta,.wc-actions,.review-actions,.quote-actions,.sentence-actions{display:flex;justify-content:center;align-items:center;gap:7px;flex-wrap:wrap}.daily-meta{margin:8px 0}.daily-meta .btn,.sentence-actions .btn,.quote-actions .btn{font-size:12px;min-height:34px;padding:6px 8px}.daily-phonetic,.wc-phonetic,.review-phonetic,.nb-item .p{color:var(--muted);font:500 13px/1.5 var(--mono)}.daily-def,.wc-def,.review-def{overflow-wrap:anywhere;line-height:1.6}.daily-tip{color:var(--muted);font-size:12px;margin-top:10px}.daily-fav.on,.wc-fav.on,.daily-meta .btn[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.daily-word-box{text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:172px;padding:16px 10px}.daily-word{min-height:54px;font:750 clamp(24px,4.1vw,48px)/1.25 var(--mono);letter-spacing:.02em;overflow-wrap:anywhere;cursor:text;user-select:none}.daily-meta,.wc-actions,.review-actions,.quote-actions,.sentence-actions{display:flex;justify-content:center;align-items:center;gap:7px;flex-wrap:wrap}.daily-meta{margin:8px 0}.daily-meta .btn,.sentence-actions .btn,.quote-actions .btn{font-size:12px;min-height:34px;padding:6px 8px}.daily-phonetic,.wc-phonetic,.review-phonetic,.nb-item .p{color:var(--muted);font:500 13px/1.5 var(--phonetic)}.daily-def,.wc-def,.review-def{overflow-wrap:anywhere;line-height:1.6}.daily-tip{color:var(--muted);font-size:12px;margin-top:10px}.daily-fav.on,.wc-fav.on,.daily-meta .btn[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
 .ch{color:var(--muted);border-bottom:2px solid transparent}.ch.done-ok{color:var(--text)}.ch.done-err{color:var(--err);background:var(--err-soft)}.ch.cur{border-bottom-color:var(--primary);background:var(--primary-soft);color:var(--text);border-radius:3px}.daily-word-box:focus-within,.daily-quote:focus-within,.typing-card:has(#typeInput:focus){border-color:var(--primary)}
 .word-card,.review-card{border:1px solid var(--border);border-radius:13px;background:var(--card);padding:18px;margin:auto;max-width:540px;cursor:pointer;animation:appear .2s ease both}.wc-word,.review-word{font:750 clamp(24px,4vw,36px)/1.2 var(--mono);overflow-wrap:anywhere}.wc-actions{margin-top:13px}.wc-def{margin-top:6px}.daily-summary{position:relative;max-width:555px;margin:auto}.ds-title{font-size:23px;font-weight:750;margin-bottom:12px}.ds-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:12px}.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}.confetti i{position:absolute;opacity:.85;border-radius:2px;animation:fall linear forwards}@keyframes fall{from{transform:translateY(-36px) rotate(0)}to{transform:translateY(500px) rotate(540deg);opacity:0}}
 .daily-quote .panel-header{margin-bottom:11px}.quote-mark{font:700 54px/.78 Georgia,serif;color:var(--primary)}.quote-en,.sentence-target{font:600 clamp(17px,2vw,22px)/1.5 Georgia,serif;overflow-wrap:anywhere;margin-bottom:10px}.quote-zh{font-size:13px;color:var(--muted);margin-bottom:13px}.quote-actions,.sentence-actions{justify-content:flex-start}.quote-footer{color:var(--muted);border-top:1px solid var(--border);margin-top:16px;padding-top:11px;display:flex;align-items:center;gap:8px;font-size:9px}.quote-footer i{width:4px;height:4px;border-radius:50%;background:var(--primary)}.sentence-target{cursor:text;user-select:none}.sentence-status{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-bottom:10px}.sentence-result{padding:10px;background:var(--primary-soft);border-radius:9px;margin-top:10px}.sentence-save-tip,.auth-error,.admin-err{color:var(--err);font-size:13px}.sentence-result p{margin-bottom:6px}
 .path-grid,.lvl-btns,.library-grid,.stat-cards{display:grid;gap:10px}.path-grid,.stat-cards{grid-template-columns:repeat(4,minmax(0,1fr))}.lvl-btns{grid-template-columns:repeat(3,minmax(0,1fr))}.library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.path-step,.lvl-btn,.passage-item,.library-item,.nb-item{padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--surface);min-width:0;color:var(--text)}.path-step,.lvl-btn,.passage-item{text-align:left;cursor:pointer}.path-step:hover,.lvl-btn:hover,.passage-item:hover{border-color:var(--primary);background:var(--primary-soft)}.path-step b,.path-step span{display:block}.path-step b{color:var(--primary)}.path-step span,.lvl-btn p{font-size:12px;margin-top:4px;color:var(--muted)}.lvl-btn{padding:20px}.lvl-btn .tag,.lib-tag,.badge{display:inline-block;border-radius:20px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:700;padding:3px 8px}.lvl-btn .tag{margin-bottom:10px}.passage-list{display:grid;gap:7px;max-height:490px;overflow:auto}.passage-item,.library-head,.nb-item{display:flex;align-items:center;justify-content:space-between;gap:10px}.wcount{font-size:12px;color:var(--muted);white-space:nowrap}.library-count{color:var(--muted);white-space:nowrap}.library-count b{color:var(--primary);font:750 24px var(--mono)}.library-toolbar,.nb-toolbar,.admin-row,.library-filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.library-toolbar input,.nb-toolbar input,.admin-row input{flex:1 1 160px;min-width:0}.library-filter{border-color:var(--border);padding:5px 9px}.library-item{display:flex;flex-direction:column;min-height:170px}.lib-tags,.nb-actions,.admin-action{display:flex;gap:6px;flex-wrap:wrap}.lib-en{font:600 18px/1.5 Georgia,serif;margin:7px 0}.lib-zh,.lib-alt,.lib-note{font-size:13px;margin-bottom:6px}.lib-alt{color:var(--primary)}.lib-note{color:var(--muted)}.lib-actions{margin-top:auto;padding-top:6px}.lib-actions .btn{min-height:33px;font-size:12px}.library-empty,.empty-tip{text-align:center;color:var(--muted);padding:26px 9px;grid-column:1/-1}
-.nb-list{display:grid;gap:8px}.nb-item{flex-wrap:wrap}.nb-item .w{font:700 17px var(--mono)}.nb-item .d{overflow-wrap:anywhere}.review-card{text-align:center;min-height:175px;display:grid;place-content:center;gap:7px}.review-card.flipped{background:var(--primary-soft)}.review-progress,.review-hint,.nb-count{color:var(--muted);text-align:center;margin:10px 0}.review-actions{margin-top:12px}.test-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.setting-field{display:grid;gap:4px}.test-actions{margin-top:16px}.test-guide p{margin-top:5px}
+.nb-list{display:grid;gap:8px}.nb-item{flex-wrap:wrap}.nb-item .w{font:700 17px var(--mono)}.nb-item .d{overflow-wrap:anywhere}
+/* ===== F4 间隔重复 ===== */
+.srs-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;padding:9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.srs-badge{font-size:12px;color:var(--muted);flex:1 1 150px;min-width:0}
+.srs-badge b{color:var(--primary);font:750 16px var(--mono)}
+.srs-badge .due-now{color:var(--err)}
+.srs-bar .btn{font-size:12px;min-height:32px;padding:5px 10px}
+.nb-srs{display:inline-block;border-radius:20px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:6px;vertical-align:middle}
+.nb-srs.due{background:var(--err-soft);color:var(--err)}
+.nb-srs.later{background:var(--primary-soft);color:var(--primary)}
+.nb-srs.fresh{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+.srs-grade{gap:6px}
+.srs-grade .btn{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:74px;padding:6px 10px;font-size:12px}
+.srs-grade .btn small{font-size:10px;font-weight:500;opacity:.8}.review-card{text-align:center;min-height:175px;display:grid;place-content:center;gap:7px}.review-card.flipped{background:var(--primary-soft)}.review-progress,.review-hint,.nb-count{color:var(--muted);text-align:center;margin:10px 0}.review-actions{margin-top:12px}.test-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.setting-field{display:grid;gap:4px}.test-actions{margin-top:16px}.test-guide p{margin-top:5px}
 .session-header{justify-content:space-between;margin-top:6px}.session-header h1{font-size:clamp(21px,3vw,34px);overflow-wrap:anywhere}.material-title{color:var(--muted);margin:8px 0}.live-hint{display:none;margin:8px 0;color:var(--muted);font-size:13px}.live-hint.show{display:block}.live-hint b,#fingerHint b{color:var(--primary)}#liveStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0}.hidden-input{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;font-size:16px}
 #typeArea{font:500 clamp(15px,1.8vw,19px)/1.9 var(--mono);min-height:150px;max-height:46vh;overflow:auto;overscroll-behavior:contain;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:clamp(12px,2vw,22px);white-space:pre-wrap;overflow-wrap:anywhere;cursor:text;user-select:none}#typeArea.level-beginner{display:flex;flex-wrap:wrap;align-content:start;gap:7px}#typeArea.level-intermediate{display:grid;align-content:start;gap:7px}.chip{max-width:100%;display:inline-block;padding:4px 7px;border:1px solid var(--border);background:var(--card);border-radius:8px}.chip:has(.cur){border-color:var(--primary)}#progressBar{height:6px;border-radius:4px;background:var(--surface);border:1px solid var(--border);overflow:hidden;margin-top:10px}#progressFill{height:100%;width:0;background:var(--primary);transition:width .14s ease}
 #kbBody{width:min(100%,680px);margin:auto}.kb-row{display:flex;justify-content:center;gap:clamp(2px,1vw,6px);margin-bottom:5px}.key{flex:0 1 44px;min-width:0;height:clamp(28px,5vw,42px);border-radius:6px;border:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;font:650 clamp(8px,1.6vw,13px) var(--mono);color:var(--text)}.key .fn{font-size:9px}.key.f-lpinky,.key.f-rpinky{background:var(--key-pinky)}.key.f-lring,.key.f-rring{background:var(--key-ring)}.key.f-lmid{background:var(--key-middle)}.key.f-lindex{background:var(--key-index)}.key.f-rindex{background:var(--key-right)}.key.f-rmid{background:var(--key-violet)}.key.thumb{flex-basis:min(45%,270px)}.key.next{outline:2px solid var(--primary);border-color:transparent;outline-offset:-1px}.key.hit-ok{background:var(--ok-soft);color:var(--ok)}.key.hit-err{background:var(--err-soft);color:var(--err)}#fingerHint,.kb-caption{text-align:center;color:var(--muted);font-size:12px;margin-top:7px}.kb-caption{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.kb-caption span{display:flex;align-items:center;gap:4px}.dot{width:9px;height:9px;border-radius:3px}
+/* ===== F2 错键热力图 =====
+   与指法配色互斥（同一键盘两种视图，避免两套底色互相干扰）；
+   热力等级用「主色→错误色」的 color-mix 派生，自动跟随主题色与深浅模式。
+   即时反馈 hit-ok/hit-err 优先级更高（写在后面），飞行中不受热力底色影响。 */
+.kb-mode-row{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 11px}
+.kb-mode{font-size:12px;min-height:32px;padding:5px 10px}
+.kb-mode.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.kb-heat-reset{font-size:12px;min-height:32px;padding:5px 10px;margin-left:auto}
+.kb-mode-link{font-size:12px;min-height:32px;padding:5px 10px;margin-left:auto;color:var(--primary)}
+.keys-intro{color:var(--muted);font-size:13px;line-height:1.7;margin:0 0 12px}
+.keys-intro b{color:var(--primary);font:750 14px var(--mono)}
+#kbBodyReview{width:min(100%,680px);margin:14px auto 0}
+#kbBodyReview .key{background:var(--surface);color:var(--muted)}
+#kbBodyReview .key.heat-1{background:color-mix(in srgb,var(--err) 12%,var(--surface));color:var(--text)}
+#kbBodyReview .key.heat-2{background:color-mix(in srgb,var(--err) 26%,var(--surface));color:var(--text)}
+#kbBodyReview .key.heat-3{background:color-mix(in srgb,var(--err) 44%,var(--surface));color:var(--text)}
+#kbBodyReview .key.heat-4{background:color-mix(in srgb,var(--err) 66%,var(--surface));color:var(--on-primary)}
+#kbBodyReview .key .kb-rate{font-size:8px;font-weight:600;opacity:.85;line-height:1.1}
+#kbBody.heat .key{background:var(--surface);color:var(--muted)}
+/* 热力视图下仍要看得见「下一个键」，用外框而不是底色，避免与错误率底色打架 */
+#kbBody.heat .key.next{outline:2px solid var(--primary);border-color:transparent;outline-offset:-1px}
+#kbBody.heat .key.heat-0{background:var(--surface);color:var(--muted)}
+#kbBody.heat .key.heat-1{background:color-mix(in srgb,var(--err) 12%,var(--surface));color:var(--text)}
+#kbBody.heat .key.heat-2{background:color-mix(in srgb,var(--err) 26%,var(--surface));color:var(--text)}
+#kbBody.heat .key.heat-3{background:color-mix(in srgb,var(--err) 44%,var(--surface));color:var(--text)}
+#kbBody.heat .key.heat-4{background:color-mix(in srgb,var(--err) 66%,var(--surface));color:var(--on-primary)}
+#kbBody.heat .key .kb-rate{font-size:8px;font-weight:600;opacity:.85;line-height:1.1}
+.dot.heat-0{background:var(--surface);border:1px solid var(--border)}
+.dot.heat-1{background:color-mix(in srgb,var(--err) 12%,var(--surface))}
+.dot.heat-2{background:color-mix(in srgb,var(--err) 26%,var(--surface))}
+.dot.heat-3{background:color-mix(in srgb,var(--err) 44%,var(--surface))}
+.dot.heat-4{background:color-mix(in srgb,var(--err) 66%,var(--surface))}
+@supports not (color:color-mix(in srgb,red 50%,blue)){
+  #kbBody.heat .key.heat-1,.dot.heat-1,#kbBodyReview .key.heat-1{background:var(--err-soft)}
+  #kbBody.heat .key.heat-2,.dot.heat-2,#kbBodyReview .key.heat-2{background:var(--err-soft)}
+  #kbBody.heat .key.heat-3,.dot.heat-3,#kbBodyReview .key.heat-3{background:var(--err-soft)}
+  #kbBody.heat .key.heat-4,.dot.heat-4,#kbBodyReview .key.heat-4{background:var(--err);color:var(--on-primary)}
+}
+#kbHeatPanel{margin-top:4px}
+.kb-heat-sum{color:var(--muted);font-size:12px;text-align:center;margin-bottom:8px}
+.kb-heat-sum b{color:var(--primary);font:750 15px var(--mono)}
+.kb-heat-top{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.kb-heat-chip{display:flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:20px;background:var(--surface);padding:3px 9px;font-size:11px;color:var(--muted)}
+.kb-heat-chip b{font:750 13px var(--mono);color:var(--err)}
+.kb-heat-empty{text-align:center;color:var(--muted);font-size:12px;padding:6px}
 .stat-cards{margin-bottom:15px}.stat-cards:empty{display:none}.stat-cards .cell{background:var(--card);padding:13px}.stat-cards b{font-size:24px}#historyChart{display:block;width:100%;height:280px}#chartBox{height:280px;overflow:hidden}#historyTable,#classTable,#recentTable,#adminStudents{max-width:100%;overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:max-content;font-size:13px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}th{color:var(--muted);font-size:12px}.badge.off{background:var(--err-soft);color:var(--err)}.admin-action .btn{min-height:32px;font-size:12px}
 #modal,#authModal,#pwModal{position:fixed;inset:0;display:flex;overflow:auto;padding:14px;background:#101913a3;z-index:100}#pwModal{z-index:110}#modal .box,.auth-card,.auth-layout{margin:auto;min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}#modal .box,.auth-card{width:min(100%,460px);padding:clamp(16px,3vw,28px)}#modal .box{text-align:center}#modal h2,.auth-card h2{margin:5px 0;font-size:24px}#modal .sub,.auth-card .sub{color:var(--muted);margin:5px 0 14px;font-size:13px}#modal .big{color:var(--primary);font:750 42px var(--mono)}#modal .big small{font-size:13px}#modal .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:13px 0}#modal .row{justify-content:center}.auth-layout{width:min(100%,760px);display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1fr);overflow:hidden}.auth-layout .auth-card{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.auth-story{background:var(--hero);padding:clamp(20px,4vw,44px);display:flex;flex-direction:column;justify-content:center}.auth-story strong{font-size:clamp(23px,4vw,42px);line-height:1.15;margin:9px 0}.auth-story .key-art{justify-content:flex-start;margin-top:21px}.auth-story .key-art b{width:clamp(25px,3.2vw,40px)}.auth-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%}.auth-field{display:grid;gap:3px;margin-bottom:9px}.auth-field input{width:100%;min-width:0}.auth-error{min-height:17px;margin-bottom:9px}.auth-note{color:var(--muted);font-size:11px;margin-top:9px}
 .page-anim{animation:appear .18s ease both}@keyframes appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -472,6 +541,7 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
     <div class="daily-tabs" aria-label="日常练习视图">
       <button type="button" id="dailyTabPractice" class="active" onclick="dailyView('practice')">练习</button>
       <button type="button" id="dailyTabNotebook" onclick="dailyView('notebook')">生词本</button>
+      <button type="button" id="dailyTabKeys" onclick="dailyView('keys')">错键分析</button>
     </div>
     <div id="dailyPracticePanel">
       <div class="practice-grid">
@@ -596,6 +666,11 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
         <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">生词本
           <span class="nb-count" id="nbCount"></span>
         </h2>
+        <div class="srs-bar hidden" id="srsBar">
+          <span class="srs-badge" id="srsBadge"></span>
+          <button class="btn" id="srsDueBtn" onclick="startReview(true)">复习到期</button>
+          <button class="btn ghost" id="srsResetBtn" onclick="srsResetAll()">重置复习进度</button>
+        </div>
         <div class="nb-toolbar" id="nbToolbar">
           <input id="nbSearch" placeholder="搜索收藏的单词" oninput="renderNotebook()">
           <button class="btn ghost" onclick="renderNotebook()">刷新</button>
@@ -616,8 +691,37 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
             <button class="btn warn hidden" id="reviewUnknownBtn" onclick="reviewMark(false)">不认识</button>
             <button class="btn ghost" id="reviewSkipBtn" onclick="reviewNext()">下一个</button>
           </div>
-          <div class="review-hint">先看单词回忆释义，再点卡片翻面确认 · 空格翻面，→ 下一个，Esc 退出</div>
+          <!-- F4：四档自评（简化 SM-2）。仅在「复习到期」模式出现，普通背单词保持原两档。 -->
+          <div class="review-actions srs-grade hidden" id="srsGradeRow">
+            <button class="btn warn" onclick="srsGrade('again')">忘了<small>10 分钟</small></button>
+            <button class="btn ghost" onclick="srsGrade('hard')">模糊<small id="srsHardHint">稍后</small></button>
+            <button class="btn" onclick="srsGrade('good')">记得<small id="srsGoodHint">下次</small></button>
+            <button class="btn" onclick="srsGrade('easy')">很熟<small id="srsEasyHint">更久</small></button>
+          </div>
+          <div class="review-hint" id="reviewHint">先看单词回忆释义，再点卡片翻面确认 · 空格翻面，→ 下一个，Esc 退出</div>
           <div style="text-align:center;margin-top:14px"><button class="btn ghost" onclick="reviewExit()">退出背单词</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- F2：错键分析独立视图。键盘卡片在两段专注下全程隐藏、练完即消失，
+         若只把热力图挂在打字区里，用户永远看不到自己的薄弱键位，故提升为日常练习的复盘页。 -->
+    <div id="dailyKeysPanel" class="hidden">
+      <div class="card">
+        <div class="panel-header"><div><div class="panel-kicker">03 / KEY ACCURACY</div><h2>错键分析</h2></div>
+          <button class="btn ghost kb-heat-reset" id="kbHeatReset" onclick="keyErrReset()">清空统计</button>
+        </div>
+        <p class="keys-intro">按「应该打的键」统计你的错误率——底色越深，说明这个键位越不稳。样本不足 <b id="kbMinSample">5</b> 次的键不着色，避免偶发一次失误就被标红。数据随账号保存，换设备也能看到。</p>
+        <div id="kbHeatPanel">
+          <div class="kb-heat-sum" id="kbHeatSum"></div>
+          <div class="kb-heat-top" id="kbHeatTop"></div>
+        </div>
+        <div id="kbBodyReview"></div>
+        <div class="kb-caption" id="kbCaptionHeat">
+          <span><i class="dot heat-0"></i>无错误</span>
+          <span><i class="dot heat-1"></i>偏低</span>
+          <span><i class="dot heat-2"></i>中等</span>
+          <span><i class="dot heat-3"></i>偏高</span>
+          <span><i class="dot heat-4"></i>薄弱</span>
         </div>
       </div>
     </div>
@@ -652,16 +756,28 @@ html[data-motion="off"] .motion-fx{display:none}.accent-swatches{display:flex;ga
     </div>
 
     <div class="card" id="keyboard">
-      <h2>键盘指法提示 <span style="font-size:12px;color:var(--muted);font-weight:400">高亮键 = 下一个应按的键</span></h2>
+      <h2>键盘指法提示 <span style="font-size:12px;color:var(--muted);font-weight:400" id="kbSubtitle">高亮键 = 下一个应按的键</span></h2>
+      <div class="kb-mode-row">
+        <button class="btn ghost kb-mode on" id="kbModeFinger" onclick="kbSetMode('finger')" aria-pressed="true">指法配色</button>
+        <button class="btn ghost kb-mode" id="kbModeHeat" onclick="kbSetMode('heat')" aria-pressed="false">错键热力图</button>
+        <button class="btn ghost kb-mode-link" onclick="switchTab('daily');dailyView('keys')">错键分析 →</button>
+      </div>
       <div id="kbBody"></div>
       <div id="fingerHint">开始输入后，这里会提示应该使用哪根手指</div>
-      <div class="kb-caption">
+      <div class="kb-caption" id="kbCaptionFinger">
         <span><i class="dot" style="background:#fde8e8"></i>小指</span>
         <span><i class="dot" style="background:#fef3e2"></i>无名指</span>
         <span><i class="dot" style="background:#fef9c3"></i>中指</span>
         <span><i class="dot" style="background:#dcfce7"></i>左手食指</span>
         <span><i class="dot" style="background:#dbeafe"></i>右手食指</span>
         <span><i class="dot" style="background:#ede9fe"></i>右手中指</span>
+      </div>
+      <div class="kb-caption hidden" id="kbCaptionHeatLive">
+        <span><i class="dot heat-0"></i>无错误</span>
+        <span><i class="dot heat-1"></i>偏低</span>
+        <span><i class="dot heat-2"></i>中等</span>
+        <span><i class="dot heat-3"></i>偏高</span>
+        <span><i class="dot heat-4"></i>薄弱</span>
       </div>
     </div>
   </div>
@@ -2658,6 +2774,7 @@ function typeChar(ch){
   const ok = ignoreCase ? (ch.toLowerCase()===expected.toLowerCase()) : (ch===expected);
   StudioSound.key(ok);
   const keyEl = keyFor(expected);
+  keyErrTrack(expected, ok); // F2：按「应打字符」累计敲击与错误
   if(ok){
     S.correct++; S.pos++;
     const sp = S.spans[S.pos-1];
@@ -2742,6 +2859,7 @@ async function finish(reason){
   const acc = accuracy(S.correct, S.errors);
   const rec = { t:Date.now(), label:S.label, material:S.material, wpm, acc, chars:S.correct, errs:S.errors, secs };
   lastResult = rec;
+  keyErrFlush(); // F2：练习结束立即落盘剩余增量，不等 2.5s 节流（避免关页面丢统计）
   if(wpm && rec.chars) StudioSound.complete();
   const modal = document.getElementById('modal');
   const tip = document.getElementById('mdSaveTip');
@@ -2798,17 +2916,18 @@ const KB_ROWS = [
   ['a','s','d','f','g','h','j','k','l',';',"'"],
   ['z','x','c','v','b','n','m',',','.','/']
 ];
-const KB_MAP = {};
-(function buildKB(){
-  const body = document.getElementById('kbBody');
+const KB_MAP = {};        // 练习内实时键盘（指法高亮 + 可选热力）
+const KB_MAP_REVIEW = {}; // F2 复盘页键盘（只读热力，不参与实时高亮）
+function buildKBInto(body, map, fingerColors){
+  if(!body) return;
   KB_ROWS.forEach(row=>{
     const r = document.createElement('div'); r.className='kb-row';
     row.forEach(k=>{
       const el = document.createElement('div');
-      el.className = 'key ' + (FINGERS[k]||'');
+      el.className = 'key' + (fingerColors ? ' ' + (FINGERS[k]||'') : '');
       el.dataset.key = k;
       el.innerHTML = `<span>${k===' '?'':k.toUpperCase()}</span><span class="fn">${k}</span>`;
-      KB_MAP[k] = el;
+      map[k] = el;
       r.appendChild(el);
     });
     if(row[0]==='a'){ const sp=document.createElement('div'); sp.className='key'; sp.style.width='30px'; sp.style.border='none'; r.insertBefore(sp, r.firstChild); }
@@ -2818,19 +2937,193 @@ const KB_MAP = {};
   const r = document.createElement('div'); r.className='kb-row';
   const sp = document.createElement('div'); sp.className='key thumb'; sp.dataset.key=' ';
   sp.innerHTML = '<span class="fn">space 空格</span>';
-  KB_MAP[' '] = sp;
+  map[' '] = sp;
   r.appendChild(sp); body.appendChild(r);
-})();
+}
+buildKBInto(document.getElementById('kbBody'), KB_MAP, true);
+buildKBInto(document.getElementById('kbBodyReview'), KB_MAP_REVIEW, false);
 function keyFor(ch){
   return KB_MAP[ch.toLowerCase()] || null;
+}
+
+/* ================= F2 错键热力图 =================
+   采集口径：按「应打字符」（expected）而非「实际按错的键」计数——
+   用户想知道的是「哪个键位打不准」，而非「误触了哪个键」。
+   本地累加 → 节流批量上报（避免每次击键一个请求）→ 服务端累加。
+   热力等级按错误率分档，样本不足（<5 次）不着色，避免偶发一次错误就标红。 */
+const KEYERR_MIN_SAMPLE = 5;
+let keyErrLocal = {};        // { ch: {errs, hits} } 尚未上报的增量
+let keyErrAll = {};          // { ch: {errs, hits} } 服务端已有 + 本地增量（用于渲染）
+let keyErrFlushTimer = 0;
+let keyErrLoaded = false;
+let kbMode = 'finger';
+
+function keyErrTrack(expected, ok){
+  if(typeof expected !== 'string' || expected.length !== 1) return;
+  const ch = expected.toLowerCase();
+  if(ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) > 0x7E) return;
+  if(!keyErrLocal[ch]) keyErrLocal[ch] = { errs:0, hits:0 };
+  keyErrLocal[ch].hits++;
+  if(!ok) keyErrLocal[ch].errs++;
+  if(!keyErrAll[ch]) keyErrAll[ch] = { errs:0, hits:0 };
+  keyErrAll[ch].hits++;
+  if(!ok) keyErrAll[ch].errs++;
+  // 性能：只更新受影响的那一个键，且仅更新当前可见的键盘。
+  // 逐键全量重绘（两套键盘 ~94 个键的 class 增删 + querySelector）会拖慢打字帧率。
+  kbHeatPaintKey(ch);
+  // 节流：2.5s 内的击键合并成一次上报
+  if(!keyErrFlushTimer) keyErrFlushTimer = setTimeout(keyErrFlush, 2500);
+}
+async function keyErrFlush(){
+  if(keyErrFlushTimer){ clearTimeout(keyErrFlushTimer); keyErrFlushTimer = 0; }
+  const keys = Object.keys(keyErrLocal).map(ch => ({ ch, errs:keyErrLocal[ch].errs, hits:keyErrLocal[ch].hits }))
+    .filter(k => k.errs > 0 || k.hits > 0);
+  if(!keys.length) return;
+  if(!currentUser){ keyErrLocal = {}; return; } // 未登录不留存，避免串账号
+  const pending = keyErrLocal;
+  keyErrLocal = {};
+  try{
+    const r = await fetch('/api/keyerrors', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ keys }) });
+    if(!r.ok) throw new Error('status ' + r.status);
+  }catch(e){
+    // 上报失败：把增量还回本地，下次一并重试（不丢统计）
+    for(const k of keys){
+      if(!keyErrLocal[k.ch]) keyErrLocal[k.ch] = { errs:0, hits:0 };
+      keyErrLocal[k.ch].errs += k.errs;
+      keyErrLocal[k.ch].hits += k.hits;
+    }
+  }
+}
+async function keyErrLoad(){
+  if(!currentUser){ keyErrAll = {}; keyErrLoaded = false; return; }
+  try{
+    const r = await fetch('/api/keyerrors');
+    if(!r.ok) throw new Error('status ' + r.status);
+    const j = await r.json();
+    keyErrAll = {};
+    (j.items || []).forEach(x => { keyErrAll[x.ch] = { errs:x.errs, hits:x.hits }; });
+    keyErrLoaded = true;
+  }catch(e){ keyErrLoaded = false; }
+  kbHeatPaint(); kbHeatSummary();
+}
+function keyErrLevel(rec){
+  if(!rec || rec.hits < KEYERR_MIN_SAMPLE || !rec.errs) return 0;
+  const rate = rec.errs / rec.hits;
+  if(rate >= 0.25) return 4;
+  if(rate >= 0.15) return 3;
+  if(rate >= 0.08) return 2;
+  return 1;
+}
+// 练习内键盘的两种配色（指法 / 热力）；复盘页键盘恒为热力，不受此开关影响
+function kbSetMode(mode){
+  kbMode = (mode === 'heat') ? 'heat' : 'finger';
+  const heat = kbMode === 'heat';
+  const body = document.getElementById('kbBody');
+  const bf = document.getElementById('kbModeFinger'), bh = document.getElementById('kbModeHeat');
+  if(bf){ bf.classList.toggle('on', !heat); bf.setAttribute('aria-pressed', String(!heat)); }
+  if(bh){ bh.classList.toggle('on', heat); bh.setAttribute('aria-pressed', String(heat)); }
+  const cf = document.getElementById('kbCaptionFinger'), ch = document.getElementById('kbCaptionHeatLive');
+  if(cf) cf.classList.toggle('hidden', heat);
+  if(ch) ch.classList.toggle('hidden', !heat);
+  const sub = document.getElementById('kbSubtitle');
+  if(sub) sub.textContent = heat ? '底色越深 = 该键错误率越高' : '高亮键 = 下一个应按的键';
+  if(body) body.classList.toggle('heat', heat);
+  if(heat && !keyErrLoaded) keyErrLoad();
+  kbHeatPaint();
+  // 统一由 highlightNextKey 决定提示文案与下一键高亮（两种视图都要有下一键外框）
+  highlightNextKey();
+  try{ localStorage.setItem('typingKbMode', kbMode); }catch(e){}
+}
+function kbHeatClearMap(map){
+  Object.keys(map).forEach(k => {
+    const el = map[k];
+    if(!el) return;
+    el.classList.remove('heat-0','heat-1','heat-2','heat-3','heat-4');
+    const r = el.querySelector('.kb-rate');
+    if(r) r.remove();
+  });
+}
+function kbHeatClear(){ kbHeatClearMap(KB_MAP); }
+// 单键绘制：等级/百分比都没变就一个 DOM 操作也不做（打字热路径）
+function kbHeatPaintEl(el, rec){
+  if(!el) return;
+  const lv = keyErrLevel(rec);
+  const cls = 'heat-' + lv;
+  if(!el.classList.contains(cls)){
+    el.classList.remove('heat-0','heat-1','heat-2','heat-3','heat-4');
+    el.classList.add(cls);
+  }
+  const show = !!(rec && rec.hits >= KEYERR_MIN_SAMPLE && rec.errs > 0);
+  const pct = show ? (Math.round(rec.errs / rec.hits * 100) + '%') : null;
+  let r = el.querySelector('.kb-rate');
+  if(show){
+    if(!r){ r = document.createElement('span'); r.className = 'kb-rate'; el.appendChild(r); }
+    if(r.textContent !== pct) r.textContent = pct;
+  } else if(r){ r.remove(); }
+}
+function kbHeatPaintKey(ch){
+  const rec = keyErrAll[ch];
+  if(!document.getElementById('dailyKeysPanel').classList.contains('hidden')) kbHeatPaintEl(KB_MAP_REVIEW[ch], rec);
+  if(kbMode === 'heat' && !document.getElementById('typingSection').classList.contains('hidden')) kbHeatPaintEl(KB_MAP[ch], rec);
+}
+function kbHeatPaintMap(map){
+  Object.keys(map).forEach(k => kbHeatPaintEl(map[k], keyErrAll[k]));
+}
+function kbHeatPaint(){
+  // 复盘页键盘始终着色；练习内键盘仅在热力配色下着色。全量重绘只在视图切换/加载/清空时走。
+  if(!document.getElementById('dailyKeysPanel').classList.contains('hidden')) kbHeatPaintMap(KB_MAP_REVIEW);
+  if(kbMode === 'heat') kbHeatPaintMap(KB_MAP); else kbHeatClearMap(KB_MAP);
+}
+function kbHeatSummary(){
+  const sum = document.getElementById('kbHeatSum'), top = document.getElementById('kbHeatTop');
+  if(!sum || !top) return;
+  const rows = Object.keys(keyErrAll).map(ch => {
+    const r = keyErrAll[ch];
+    return { ch, errs:r.errs, hits:r.hits, rate: r.hits ? r.errs / r.hits : 0 };
+  });
+  const totalErrs = rows.reduce((a, x) => a + x.errs, 0);
+  const totalHits = rows.reduce((a, x) => a + x.hits, 0);
+  if(!totalHits){
+    sum.innerHTML = '';
+    top.innerHTML = '<div class="kb-heat-empty">还没有统计数据，完成一次练习后这里会显示薄弱键位。</div>';
+    return;
+  }
+  const overall = (totalErrs / totalHits * 100).toFixed(1);
+  sum.innerHTML = '累计敲击 <b>' + totalHits + '</b> 次 · 错误 <b>' + totalErrs + '</b> 次 · 整体错误率 <b>' + overall + '%</b>';
+  const weak = rows.filter(x => x.hits >= KEYERR_MIN_SAMPLE && x.errs > 0)
+    .sort((a, b) => b.rate - a.rate || b.errs - a.errs).slice(0, 8);
+  if(!weak.length){
+    top.innerHTML = '<div class="kb-heat-empty">暂无明显薄弱键位（样本不足 ' + KEYERR_MIN_SAMPLE + ' 次的键不计入）。</div>';
+    return;
+  }
+  top.innerHTML = weak.map(x => {
+    const label = x.ch === ' ' ? 'space' : esc(x.ch.toUpperCase());
+    return '<span class="kb-heat-chip">' + label + ' <b>' + Math.round(x.rate * 100) + '%</b> ' + x.errs + '/' + x.hits + '</span>';
+  }).join('');
+}
+async function keyErrReset(){
+  if(!currentUser) return;
+  if(!confirm('清空全部错键统计？此操作不可撤销。')) return;
+  try{
+    const r = await fetch('/api/keyerrors/reset', { method:'POST' });
+    if(!r.ok) throw new Error('status ' + r.status);
+    keyErrAll = {}; keyErrLocal = {};
+    if(keyErrFlushTimer){ clearTimeout(keyErrFlushTimer); keyErrFlushTimer = 0; }
+    kbHeatPaint(); kbHeatSummary();
+  }catch(e){ alert('清空失败，请稍后重试'); }
 }
 let _nextKeyEl = null;
 function highlightNextKey(){
   if(_nextKeyEl){ _nextKeyEl.classList.remove('next'); _nextKeyEl = null; }
   const hint = document.getElementById('fingerHint');
   const live = document.getElementById('liveHint');
+  // F2：热力视图下键盘底色表达错误率，卡片内的说明行必须恒定解释配色，
+  // 否则会被上一次指法文案残留覆盖（「下一键」信息仍由 liveHint 承载）。
+  const heat = kbMode === 'heat';
+  const heatNote = '按错误率着色，样本不足 ' + KEYERR_MIN_SAMPLE + ' 次的键不着色';
+  if(heat) hint.innerHTML = heatNote;
   if(!S.text || S.finished){
-    hint.innerHTML='开始输入后，这里会提示应该使用哪根手指';
+    if(!heat) hint.innerHTML = '开始输入后，这里会提示应该使用哪根手指';
     live.classList.remove('show');
     return;
   }
@@ -2851,7 +3144,7 @@ function highlightNextKey(){
   } else {
     html = `下一个字符：<b>${ch.replace(/</g,'&lt;')}</b>`;
   }
-  hint.innerHTML = html;
+  if(!heat) hint.innerHTML = html;
   live.innerHTML = html;
   const wasShown = live.classList.contains('show');
   live.classList.add('show');
@@ -2928,6 +3221,9 @@ async function submitAuth(){
     hideAuthModalAnimated();
     syncFavsFromServer();
     syncPrefsFromServer();
+    keyErrLocal = {}; keyErrAll = {}; keyErrLoaded = false; // F2：换账号先清空
+    keyErrLoad();
+    srsLoad(); // F4：拉取复习调度
     if(data.linked_records > 0) alert('已自动关联 ' + data.linked_records + ' 条同名历史成绩。');
     switchTab('daily');
   }catch(e){
@@ -2953,6 +3249,13 @@ async function logout(){
   clearTimeout(cardTimer); cardTimer = null;
   exitHomeSentencePractice();
   favCache = null;
+  // F2/F4：清空本人统计与调度缓存，避免切换账号后残留上一人的数据
+  if(keyErrFlushTimer){ clearTimeout(keyErrFlushTimer); keyErrFlushTimer = 0; }
+  keyErrLocal = {}; keyErrAll = {}; keyErrLoaded = false;
+  srsState = { items:[], due:[], dueCount:0, total:0 }; srsLoaded = false;
+  kbHeatPaint(); kbHeatSummary();
+  srsRenderBadge();
+  dailyView('practice');   // 退出时离开复盘/生词本，避免残留上一人的数据视图
   document.getElementById('typingSection').classList.add('hidden');
   updateAuthUI();
   // 退出后隐藏教师专属页面并回到日常练习首页，避免切换账号时页面内容泄漏
@@ -2987,7 +3290,11 @@ async function loadSession(){
   }catch(e){ currentUser = null; }
   updateAuthUI();
   document.getElementById('authModal').classList.toggle('hidden', !!currentUser);
-  if(currentUser){ syncFavsFromServer(); syncPrefsFromServer(); switchTab('daily'); }
+  if(currentUser){ syncFavsFromServer(); syncPrefsFromServer(); keyErrLoad(); srsLoad(); switchTab('daily'); }
+  // 恢复上次的键盘视图偏好（未登录也可用指法视图）
+  let savedKb = 'finger';
+  try{ savedKb = localStorage.getItem('typingKbMode') || 'finger'; }catch(e){}
+  kbSetMode(savedKb === 'heat' && currentUser ? 'heat' : 'finger');
 }
 function selectStudioTab(tab){
   const active = document.getElementById('tab-'+tab);
@@ -3060,7 +3367,9 @@ document.addEventListener('visibilitychange', ()=>{
   if(ab) ab.querySelectorAll('i').forEach(el=>{ el.style.animationPlayState = document.hidden ? 'paused' : ''; });
   if(document.hidden) liveCurveStop();
   else if(S.startedAt && !S.finished) liveCurveStart();
+  if(document.hidden) keyErrFlush(); // F2：切走前把错键增量落盘
 });
+window.addEventListener('pagehide', ()=>{ keyErrFlush(); });
 let themeXfadeTimer = null;
 function themeCrossfade(){
   if(!window.StudioMotion || StudioMotion.get() !== 'full') return;
@@ -4420,11 +4729,20 @@ const D = { list:[], idx:0, pos:0, errors:0, correct:0, startedAt:null, skipped:
 let cardTimer = null;
 const WORD_CARD_MS = 3500;
 function dailyView(view){
-  document.getElementById('dailyTabPractice').classList.toggle('active', view==='practice');
-  document.getElementById('dailyTabNotebook').classList.toggle('active', view==='notebook');
-  document.getElementById('dailyPracticePanel').classList.toggle('hidden', view!=='practice');
-  document.getElementById('dailyNotebookPanel').classList.toggle('hidden', view!=='notebook');
-  if(view==='notebook') renderNotebook();
+  const v = (view==='notebook' || view==='keys') ? view : 'practice';
+  document.getElementById('dailyTabPractice').classList.toggle('active', v==='practice');
+  document.getElementById('dailyTabNotebook').classList.toggle('active', v==='notebook');
+  document.getElementById('dailyTabKeys').classList.toggle('active', v==='keys');
+  document.getElementById('dailyPracticePanel').classList.toggle('hidden', v!=='practice');
+  document.getElementById('dailyNotebookPanel').classList.toggle('hidden', v!=='notebook');
+  document.getElementById('dailyKeysPanel').classList.toggle('hidden', v!=='keys');
+  if(v==='notebook') renderNotebook();
+  if(v==='keys'){
+    // 进入复盘页先落盘尚未上报的增量，再拉最新统计（跨设备也能看到刚练的结果）
+    keyErrFlush();
+    kbHeatPaint(); kbHeatSummary();   // 先按本地数据立即着色，避免等网络的空白帧
+    if(currentUser) keyErrLoad();
+  }
 }
 function getDailyPool(topic){
   const topicWords = DAILY_TOPIC_WORDS[topic];
@@ -4807,11 +5125,22 @@ function renderNotebook(){
     list.innerHTML = '<div class="empty-tip">' + (favs.length ? '没有匹配的单词' : '还没有收藏单词，去「日常练习」点“收藏”吧') + '</div>';
     return;
   }
+  const sm = srsLoaded ? srsMap() : {};
   list.innerHTML = filtered.map(w=>{
     const item = DAILY_MAP[w] || {p:'', d:''};
-    return `<div class="nb-item"><div><div class="w">${esc(w)}</div><div class="p">AmE: ${esc(item.p)}</div><div class="d">${esc(item.d)}</div></div>
+    // F4：到期状态标签（未登录或调度未就绪时不显示，保持原样）
+    let tag = '';
+    const rec = sm[w];
+    if(rec){
+      if(rec.due_at <= srsNow()) tag = '<span class="nb-srs due">待复习</span>';
+      // 「忘了」会把 reps 归零但 lapses+1，此时不是新词而是待巩固，按下次时间显示
+      else if(rec.reps > 0 || rec.lapses > 0 || rec.last_review > 0) tag = '<span class="nb-srs later">' + esc(srsFmtLeft(rec.due_at)) + '</span>';
+      else tag = '<span class="nb-srs fresh">新词</span>';
+    }
+    return `<div class="nb-item"><div><div class="w">${esc(w)}${tag}</div><div class="p">AmE: ${esc(item.p)}</div><div class="d">${esc(item.d)}</div></div>
       <div class="nb-actions"><button class="btn ghost" onclick="notebookSpeak('${esc(w)}')">发音</button><button class="btn ghost" onclick="notebookLookup('${esc(w)}')">查词</button><button class="btn ghost" onclick="notebookRemove('${esc(w)}')">移除</button></div></div>`;
   }).join('');
+  srsRenderBadge();
 }
 function notebookSpeak(w){
   if(!('speechSynthesis' in window)) return;
@@ -4839,16 +5168,129 @@ function notebookClear(){
   }
 }
 
+/* ================= F4 间隔重复（简化 SM-2，调度在后端） =================
+   前端只负责：拉取调度状态、按到期组卷、提交自评、渲染下次时间。
+   算法与权威时间都在服务端，避免本机时钟不准导致排程错乱。 */
+let srsState = { items:[], due:[], dueCount:0, total:0 };
+let srsLoaded = false;
+let srsMode = false;          // true = 复习到期模式（四档自评）
+let srsClockSkew = 0;         // 服务端 now - 本机 now，用于显示剩余时间
+
+function srsNow(){ return Math.floor(Date.now()/1000) + srsClockSkew; }
+async function srsLoad(){
+  if(!currentUser){ srsState = { items:[], due:[], dueCount:0, total:0 }; srsLoaded = false; srsRenderBadge(); return; }
+  try{
+    const r = await fetch('/api/srs');
+    if(!r.ok) throw new Error('status ' + r.status);
+    const j = await r.json();
+    srsState = { items:j.items || [], due:j.due || [], dueCount:j.dueCount || 0, total:j.total || 0 };
+    if(typeof j.now === 'number') srsClockSkew = j.now - Math.floor(Date.now()/1000);
+    srsLoaded = true;
+  }catch(e){ srsLoaded = false; }
+  srsRenderBadge();
+  if(!document.getElementById('dailyNotebookPanel').classList.contains('hidden')) renderNotebook();
+}
+function srsMap(){
+  const m = {};
+  srsState.items.forEach(x => { m[x.word] = x; });
+  return m;
+}
+function srsFmtLeft(due){
+  const d = due - srsNow();
+  if(d <= 0) return '现在';
+  if(d < 3600) return Math.max(1, Math.round(d/60)) + ' 分钟后';
+  if(d < 86400) return Math.round(d/3600) + ' 小时后';
+  const days = d/86400;
+  if(days < 30) return Math.round(days) + ' 天后';
+  return Math.round(days/30) + ' 个月后';
+}
+function srsFmtInterval(days){
+  if(days <= 0) return '10 分钟';
+  if(days < 1) return Math.round(days*24*60) + ' 分钟';
+  if(days < 30) return (Math.round(days*10)/10) + ' 天';
+  if(days < 365) return (Math.round(days/30*10)/10) + ' 个月';
+  return (Math.round(days/365*10)/10) + ' 年';
+}
+function srsRenderBadge(){
+  const bar = document.getElementById('srsBar'), badge = document.getElementById('srsBadge');
+  const dueBtn = document.getElementById('srsDueBtn');
+  if(!bar || !badge) return;
+  const rp = document.getElementById('reviewPanel');
+  const inReview = !!rp && !rp.classList.contains('hidden');
+  const show = !!currentUser && srsState.total > 0 && !inReview;
+  bar.classList.toggle('hidden', !show);
+  if(!show) return;
+  const due = srsState.dueCount;
+  badge.innerHTML = due > 0
+    ? '待复习 <b class="due-now">' + due + '</b> 个 · 生词本共 <b>' + srsState.total + '</b> 个'
+    : '本轮已全部复习完 · 生词本共 <b>' + srsState.total + '</b> 个';
+  if(dueBtn){ dueBtn.disabled = due === 0; dueBtn.textContent = due > 0 ? ('复习到期 (' + due + ')') : '暂无到期'; }
+}
+async function srsResetAll(){
+  if(!currentUser || !srsState.total) return;
+  if(!confirm('重置全部复习进度？所有单词会立即重新到期，此操作不可撤销。')) return;
+  try{
+    const r = await fetch('/api/srs/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ all:true }) });
+    if(!r.ok) throw new Error('status ' + r.status);
+    await srsLoad();
+  }catch(e){ alert('重置失败，请稍后重试'); }
+}
+// 预估各档下次间隔（与后端 srs_next 同口径，仅用于按钮提示文案）
+function srsPreview(rec, quality){
+  let ease = rec ? rec.ease : 2.5, interval = rec ? rec.interval : 0, reps = rec ? rec.reps : 0;
+  if(quality === 'again') return 0;
+  if(reps === 0) interval = quality === 'easy' ? 4 : 1;
+  else if(reps === 1) interval = quality === 'easy' ? 6 : 3;
+  else interval = Math.max(1, interval * ease * (quality === 'easy' ? 1.15 : (quality === 'hard' ? 0.8 : 1)));
+  return Math.min(365, interval);
+}
+function srsUpdateGradeHints(){
+  const w = R.list[R.idx];
+  const rec = srsMap()[w];
+  const set = (id, q) => { const el = document.getElementById(id); if(el) el.textContent = srsFmtInterval(srsPreview(rec, q)); };
+  set('srsHardHint', 'hard'); set('srsGoodHint', 'good'); set('srsEasyHint', 'easy');
+}
+async function srsGrade(quality){
+  if(R.done || !srsMode) return;
+  const word = R.list[R.idx];
+  if(!word) return;
+  try{
+    const r = await fetch('/api/srs/review', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ word, quality }) });
+    if(!r.ok) throw new Error('status ' + r.status);
+    const j = await r.json();
+    // 就地更新本地调度，避免整表重拉
+    const it = srsState.items.find(x => x.word === word);
+    if(it){ it.ease = j.ease; it.interval = j.interval; it.reps = j.reps; it.lapses = j.lapses; it.due_at = j.due_at; it.last_review = Math.floor(Date.now()/1000); }
+    srsState.due = srsState.items.filter(x => x.due_at <= srsNow()).map(x => x.word);
+    srsState.dueCount = srsState.due.length;
+  }catch(e){ /* 提交失败不阻断复习流程，下次进入会重新拉取 */ }
+  if(quality === 'again') R.unknown++; else R.known++;
+  reviewNext();
+}
+
 /* ===== 背单词（闪卡） ===== */
 const R = { list:[], idx:0, flipped:false, known:0, unknown:0, done:false };
-function startReview(){
+function startReview(dueOnly){
   const favs = getDailyFavs();
   if(!favs.length){ alert('生词本还是空的，先去「练习」收藏几个单词吧'); return; }
-  R.list = shuffle(favs); R.idx = 0; R.flipped = false; R.known = 0; R.unknown = 0; R.done = false;
+  srsMode = !!dueOnly && !!currentUser && srsLoaded;
+  let pool = favs;
+  if(srsMode){
+    const dueSet = new Set(srsState.due);
+    pool = favs.filter(w => dueSet.has(w));
+    if(!pool.length){ alert('当前没有到期的单词，休息一下吧'); srsMode = false; return; }
+  }
+  R.list = shuffle(pool); R.idx = 0; R.flipped = false; R.known = 0; R.unknown = 0; R.done = false;
   document.getElementById('nbToolbar').classList.add('hidden');
   document.getElementById('nbList').classList.add('hidden');
+  const bar = document.getElementById('srsBar');
+  if(bar) bar.classList.add('hidden');
   document.getElementById('reviewPanel').classList.remove('hidden');
   document.getElementById('reviewSkipBtn').textContent = '下一个';
+  const hint = document.getElementById('reviewHint');
+  if(hint) hint.textContent = srsMode
+    ? '翻面后按记忆程度自评，系统按遗忘曲线安排下次复习 · 空格翻面，Esc 退出'
+    : '先看单词回忆释义，再点卡片翻面确认 · 空格翻面，→ 下一个，Esc 退出';
   renderReviewCard();
 }
 function renderReviewCard(){
@@ -4860,14 +5302,23 @@ function renderReviewCard(){
   document.getElementById('reviewDef').classList.toggle('hidden', !R.flipped);
   document.getElementById('reviewCard').classList.toggle('flipped', R.flipped);
   document.getElementById('reviewFlipBtn').classList.toggle('hidden', R.flipped);
-  document.getElementById('reviewKnownBtn').classList.toggle('hidden', !R.flipped);
-  document.getElementById('reviewUnknownBtn').classList.toggle('hidden', !R.flipped);
-  document.getElementById('reviewProgress').textContent = (R.idx+1) + ' / ' + R.list.length;
+  // F4：复习到期模式用四档自评，普通背单词保持原「认识/不认识」两档
+  document.getElementById('reviewKnownBtn').classList.toggle('hidden', !R.flipped || srsMode);
+  document.getElementById('reviewUnknownBtn').classList.toggle('hidden', !R.flipped || srsMode);
+  const gradeRow = document.getElementById('srsGradeRow');
+  if(gradeRow) gradeRow.classList.toggle('hidden', !R.flipped || !srsMode);
+  document.getElementById('reviewSkipBtn').classList.toggle('hidden', srsMode && R.flipped);
+  if(srsMode && R.flipped) srsUpdateGradeHints();
+  const rec = srsMode ? srsMap()[w] : null;
+  document.getElementById('reviewProgress').textContent = (R.idx+1) + ' / ' + R.list.length
+    + (srsMode ? ' · 到期复习' : '')
+    + (rec && rec.reps > 0 ? ' · 已复习 ' + rec.reps + ' 次' : '');
 }
 function reviewFlip(){ if(R.done) return; R.flipped = true; renderReviewCard(); }
 function reviewMark(known){ if(R.done) return; if(known) R.known++; else R.unknown++; reviewNext(); }
 function reviewNext(){
-  if(R.done){ startReview(); return; }
+  // 到期复习跑完后不再自动组卷（此时已无到期词），直接回生词本看新排程
+  if(R.done){ if(srsMode){ reviewExit(); } else { startReview(); } return; }
   R.idx++; R.flipped = false;
   if(R.idx >= R.list.length){ reviewFinish(); return; }
   renderReviewCard();
@@ -4878,19 +5329,34 @@ function reviewFinish(){
   document.getElementById('reviewPhonetic').textContent = '';
   const def = document.getElementById('reviewDef');
   def.classList.remove('hidden');
-  def.textContent = '认识 ' + R.known + ' 个 · 不认识 ' + R.unknown + ' 个';
+  def.textContent = srsMode
+    ? ('已安排 ' + R.known + ' 个 · 需重来 ' + R.unknown + ' 个')
+    : ('认识 ' + R.known + ' 个 · 不认识 ' + R.unknown + ' 个');
   document.getElementById('reviewCard').classList.remove('flipped');
   document.getElementById('reviewProgress').textContent = '共 ' + R.list.length + ' 个单词';
   document.getElementById('reviewFlipBtn').classList.add('hidden');
   document.getElementById('reviewKnownBtn').classList.add('hidden');
   document.getElementById('reviewUnknownBtn').classList.add('hidden');
-  document.getElementById('reviewSkipBtn').textContent = '再来一轮';
+  const gr = document.getElementById('srsGradeRow');
+  if(gr) gr.classList.add('hidden');
+  document.getElementById('reviewSkipBtn').classList.remove('hidden');
+  document.getElementById('reviewSkipBtn').textContent = srsMode ? '返回生词本' : '再来一轮';
+  if(srsMode){
+    // 先用本地已就地更新的调度算「下次复习」（同步、无竞态），再异步回服务端校准
+    const next = srsState.items.filter(x => x.due_at > srsNow()).sort((a,b) => a.due_at - b.due_at)[0];
+    if(next) def.textContent += ' · 下次复习 ' + srsFmtLeft(next.due_at);
+    srsLoad();
+  }
 }
 function reviewExit(){
   document.getElementById('reviewPanel').classList.add('hidden');
   document.getElementById('nbToolbar').classList.remove('hidden');
   document.getElementById('nbList').classList.remove('hidden');
-  renderNotebook();
+  const gr = document.getElementById('srsGradeRow');
+  if(gr) gr.classList.add('hidden');
+  document.getElementById('reviewSkipBtn').classList.remove('hidden');
+  srsMode = false;
+  renderNotebook();   // 内部会调 srsRenderBadge，恢复顶部到期条
 }
 document.addEventListener('keydown', e=>{
   const panel = document.getElementById('reviewPanel');
