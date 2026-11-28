@@ -571,10 +571,10 @@
 
   /* 每个面板独立代际与在途记录：设置页与分享卡可先后/交错开合，
      共享单例会让「关分享」误杀「开设置」的在途动画。 */
-  var sheetStates = new WeakMap();   // panel -> {gen, anim, anchorRect}
+  var sheetStates = new WeakMap();   // panel -> {gen, anim, anchorRect, fly, flyAnims}
   function sheetState(panel) {
     var st = sheetStates.get(panel);
-    if (!st) { st = { gen: 0, anim: null, anchorRect: null }; sheetStates.set(panel, st); }
+    if (!st) { st = { gen: 0, anim: null, anchorRect: null, fly: null, flyAnims: null }; sheetStates.set(panel, st); }
     return st;
   }
 
@@ -592,6 +592,16 @@
       panel.style.transform = '';
       st.anim = null;
     }
+    /* 飞行层：中断时可能正挂在 body 上。不摘会留在屏幕上当一个假面板。 */
+    sheetFlyKill(st);
+    /* 子内容与遮罩上也有在途动画（错峰浮现 / 遮罩渐变）：
+       cancel 会回滚 fill，必须连带清掉内联值，否则中断后会留下半透明的面板内容。 */
+    sheetContentKill(panel);
+    var scrim = panel.parentNode;
+    if (scrim && scrim !== document.body) {
+      scrim.getAnimations().forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      scrim.style.backgroundColor = '';
+    }
   }
   var sheetAll = [];   // 见过的面板（数量级：个位数，线性遍历即可）
 
@@ -602,26 +612,143 @@
     return r.width >= pr.width - 2 && Math.abs(r.bottom - pr.bottom) < 4;
   }
 
-  /** 从入口矩形推导开合变换：桌面=向入口方向缩拢，移动=底部抽屉滑出 */
-  function sheetTransform(panel, anchorRect, opening) {
+  /* ---------- 面板开合的分工：飞行层管几何，本体管显影 ----------
+     demo 的 openFLIP 是两套东西并行：
+       ① makeFly 克隆层：left/top/width/height 从图标矩形**非等比**插值到全屏
+       ② appEl：opacity 0→1 + scale(1.03)→1，delay 0.34D
+     几何全压在克隆层上，所以非等比不会把 App 里的文字拉变形 —— 壳里没有真文字。
+
+     面板不能整体克隆（内容是活的：输入框、Tab、开关），早先就让**本体**去承担
+     几何，做成「等面积等比缩放」。结果是中心对上了、轮廓对不上：入口是 193×59 的
+     横条，等比后起点却成了 85×133 的竖条。等比缩放 26 倍面积时，本来就不可能同时
+     贴合非等比的入口形状 —— 这是几何上的死结，不是参数没调好。
+
+     现在照 demo 分工：飞行层是一个**纯壳**（底色/边框/圆角/阴影，无子节点）做非等比
+     几何；面板本体全程不动几何，等壳长到接近终态再交叉淡入。末帧两者矩形几乎重合，
+     接缝看不出来。 */
+
+  /* 交叉淡入的分拍。**全部用绝对时间（delay + duration）表达，不用 keyframe offset。**
+     WAAPI 的 easing 作用于整条时间轴而非单个关键帧段：若把「offset 0.74 处还是 1」
+     写进带 EASE_OUT 的 keyframes，缓动会把进度整体提前，实测在 36% 进度就开始淡出；
+     而本体的 delay 是绝对时间不受缓动影响，两边一错位，中间会有约 120ms 屏幕上什么
+     都没有（壳已淡完、本体还没显）。拆成两条独立动画，交叠区才是真的。 */
+  var FLY_HOLD = 0.68;   // 壳开始淡出的时间（× D）
+  var FLY_GONE = 0.92;   // 壳彻底消失
+  var PANEL_START = 0.64; // 本体开始显影（比壳早一点，保证有交叠）
+  var PANEL_FULL = 0.90;  // 本体完全不透明
+  /* 内容错峰：几何落定之后再归位，观感是「先有卡、后有内容」 */
+  var KID_AT = 0.80;
+  var KID_DUR = 0.30;
+  var KID_STEP = 0.04;
+
+  /** 面板的视觉壳（飞行层要长得和本体一模一样，交接才无缝） */
+  function sheetShell(panel) {
+    var cs = getComputedStyle(panel);
+    return {
+      bg: cs.backgroundColor,
+      border: cs.borderTopWidth + ' ' + cs.borderTopStyle + ' ' + cs.borderTopColor,
+      radius: cs.borderTopLeftRadius,
+      shadow: cs.boxShadow === 'none' ? 'none' : cs.boxShadow
+    };
+  }
+
+  /** 造飞行层。用 position:fixed + 视口矩形，所以挂 body
+      （挂进遮罩会被它的 padding 平移，矩形就对不上了）。
+      z-index 高于 #settingsModal(105)，语义同 demo 的 .fly{40} 压在 .app{30} 之上。 */
+  function sheetFlyMake(rect, shell, radius) {
+    var el = document.createElement('div');
+    el.className = 'sheet-fly';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = 'position:fixed;margin:0;padding:0;box-sizing:border-box;' +
+      'pointer-events:none;z-index:210;' +
+      'background:' + shell.bg + ';border:' + shell.border + ';' +
+      'box-shadow:' + shell.shadow + ';' +
+      'left:' + rect.left + 'px;top:' + rect.top + 'px;' +
+      'width:' + rect.width + 'px;height:' + rect.height + 'px;' +
+      'border-radius:' + radius + ';';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function sheetFlyKill(st) {
+    if (!st || !st.fly) return;
+    st.fly.getAnimations().forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    if (st.fly.parentNode) st.fly.parentNode.removeChild(st.fly);
+    st.fly = null;
+    st.flyAnims = null;
+  }
+
+  /** 遮罩渐变：从「同色但透明」起步/收尾，换主题不会残留写死的 rgba */
+  function sheetScrim(scrim, D, showing) {
+    if (!scrim || scrim === document.body) return null;
+    var bg = getComputedStyle(scrim).backgroundColor;
+    if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') return null;
+    var zero = withAlphaZero(bg);
+    return scrim.animate(
+      showing ? [{ backgroundColor: zero }, { backgroundColor: bg }]
+              : [{ backgroundColor: bg }, { backgroundColor: zero }],
+      { duration: D, easing: showing ? EASE_OUT : EASE, fill: 'both' });
+  }
+
+  /** 开合形态判定：贴底抽屉 / 有入口（飞行层几何） / 无入口（就地淡入） */
+  function sheetPlan(panel, anchorRect, opening) {
     var r = panel.getBoundingClientRect();
     if (sheetIsDrawer(panel)) {
       // 抽屉：滑出屏底（opening 时是「起点」，closing 时是「终点」）
       var dy = Math.max(60, r.height * 0.6);
-      return { transform: 'translateY(' + dy + 'px)', opacity: opening ? 0.4 : 0 };
+      return { mode: 'slide', transform: 'translateY(' + dy + 'px)', opacity: opening ? 0.4 : 0 };
     }
-    var dx = 0, dy = 14;
-    if (anchorRect && anchorRect.width) {
-      // 入口中心相对面板中心的偏移，收敛到 ±40px（入口可能在屏外/侧栏里）
-      var acx = anchorRect.left + anchorRect.width / 2;
-      var acy = anchorRect.top + anchorRect.height / 2;
-      var pcx = r.left + r.width / 2;
-      var pcy = r.top + r.height / 2;
-      dx = Math.max(-40, Math.min(40, (acx - pcx) * 0.12));
-      dy = Math.max(-28, Math.min(28, (acy - pcy) * 0.12));
-      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) dy = 14;   // 入口与面板几乎同心时保底纵向
+    if (anchorRect && anchorRect.width && r.width && r.height) {
+      return { mode: 'fly', rect: r };
     }
-    return { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0.96)', opacity: 0 };
+    // 无入口（如分享卡）：保底从下方 24px 处淡入并略微放大
+    return { mode: 'fade', transform: 'translate(0,24px) scale(0.94)', opacity: 0 };
+  }
+
+  /* 把 #rrggbb / rgb() / rgba() 统一降成同色但 alpha=0 的串。
+     遮罩渐隐渐显要用它：从「同色透明」起步而不是写死一个 rgba，
+     主题换色时不用回来改这里。 */
+  function withAlphaZero(color) {
+    var m = color.match(/^rgba?\(([^)]+)\)$/);
+    if (!m) return 'transparent';
+    var p = m[1].split(',').map(function (s) { return s.trim(); });
+    if (p.length === 4) { p[3] = '0'; return 'rgba(' + p.join(',') + ')'; }
+    return 'rgba(' + p[0] + ',' + p[1] + ',' + p[2] + ',0)';
+  }
+
+  /* 面板内容的错峰浮现。
+     几何在「一个空壳长大」，文字若全程跟着缩放会被压成一团糊；
+     demo 的做法是克隆层里换成放大的字形再淡出，面板不能用克隆（内容是活的），
+     所以改成：本体（底色/边框/阴影）全程实体，文字延后到快长成时才浮现。
+     这就是 demo reveal 的等效，也是「先有形状、后有内容」的观感来源。
+     @param {boolean} late 飞行层模式：本体在 0.72D 才开始显影，
+                           内容若还从 0.30D 起就会在「本体还透明」时先浮出来。 */
+  function sheetContentIn(panel, D, late) {
+    var kids = Array.prototype.slice.call(panel.children);
+    var at = late ? KID_AT : 0.30;
+    var dur0 = late ? KID_DUR : 0.42;
+    var step = late ? KID_STEP : 0.045;
+    return kids.map(function (k, i) {
+      return k.animate([
+        { opacity: 0, transform: 'translateY(9px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], {
+        duration: Math.max(1, Math.round(D * dur0)),
+        delay: Math.round(D * (at + Math.min(i, 6) * step)),
+        easing: EASE_OUT,
+        fill: 'both'
+      });
+    });
+  }
+
+  function sheetContentKill(panel) {
+    Array.prototype.slice.call(panel.children).forEach(function (k) {
+      k.getAnimations().forEach(function (a) {
+        try { a.cancel(); } catch (e) {}
+      });
+      k.style.opacity = '';
+      k.style.transform = '';
+    });
   }
 
   /**
@@ -637,18 +764,76 @@
     var st = sheetState(panel);
     var gen = st.gen;
     var D = dur(opts.duration || 'base');
-    st.anchorRect = anchor && anchor.getClientRects().length ? anchor.getBoundingClientRect() : null;
+    var anchorRect = anchor && anchor.getClientRects().length ? anchor.getBoundingClientRect() : null;
+    st.anchorRect = anchorRect;
     if (!D) { panel.style.opacity = ''; panel.style.transform = ''; return Promise.resolve(); }
-    var from = sheetTransform(panel, st.anchorRect, true);
-    var a = panel.animate([
-      { opacity: from.opacity, transform: from.transform },
-      { opacity: 1, transform: 'translate(0,0) scale(1)' }
-    ], { duration: D, easing: EASE_OUT, fill: 'both' });
-    st.anim = a;
-    return a.finished.then(function () {
+
+    var plan = sheetPlan(panel, anchorRect, true);
+    var scrim = panel.parentNode;
+    var scrimAnim = sheetScrim(scrim, D, true);
+    var shell = sheetShell(panel);
+    var panelAnim;
+    var flyMetas = [];
+
+    if (plan.mode === 'fly') {
+      var pr = plan.rect;
+      /* 本体先隐着：几何由壳接管，本体只等壳快长成时交叉淡入。
+         壳的起点用**入口矩形的非等比形状**（不是等面积的等比方块）——
+         这一步就是 demo 的 a1，也是轮廓能对上的唯一办法。 */
+      panel.style.opacity = '0';
+      var fly = sheetFlyMake(anchorRect, shell, Math.min(8, anchorRect.height / 2) + 'px');
+      st.fly = fly;
+      /* 壳做非等比几何：left/top/width/height 直接插值（同 demo a1）。
+         终点用面板矩形，末帧两者重合，接缝不可见。 */
+      var flyGeo = fly.animate([
+        { left: anchorRect.left + 'px', top: anchorRect.top + 'px',
+          width: anchorRect.width + 'px', height: anchorRect.height + 'px',
+          borderRadius: Math.min(8, anchorRect.height / 2) + 'px' },
+        { left: pr.left + 'px', top: pr.top + 'px',
+          width: pr.width + 'px', height: pr.height + 'px',
+          borderRadius: shell.radius }
+      ], { duration: D, easing: EASE, fill: 'forwards' });
+      /* 壳退场：等到几何接近终态才化，且用**绝对时间**（delay 表达），
+         不用 keyframe offset —— 见上方 FLY_HOLD 注释里那段缓动错位。 */
+      var flyFade = fly.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: Math.max(1, Math.round(D * (FLY_GONE - FLY_HOLD))),
+        delay: Math.round(D * FLY_HOLD),
+        easing: EASE_INOUT, fill: 'forwards'
+      });
+      flyMetas = [flyGeo, flyFade];
+      st.flyAnims = flyMetas;
+
+      /* 本体：只做「显影 + 极轻微放大回正」（demo 的 a3 是 scale 1.03→1）。
+         起点比壳开始淡出**更早**，两段交叠，屏幕上始终有东西。 */
+      panelAnim = panel.animate([
+        { opacity: 0, transform: 'scale(1.03)' },
+        { opacity: 1, transform: 'scale(1)' }
+      ], {
+        duration: Math.max(1, Math.round(D * (PANEL_FULL - PANEL_START))),
+        delay: Math.round(D * PANEL_START),
+        easing: EASE_OUT, fill: 'both'
+      });
+    } else {
+      panelAnim = panel.animate([
+        { opacity: plan.opacity, transform: plan.transform },
+        { opacity: 1, transform: 'translate(0,0) scale(1)' }
+      ], { duration: D, easing: EASE_OUT, fill: 'both' });
+    }
+
+    /* 内容错峰：几何落定后再归位。抽屉形态内容已在屏外，不需要叠一层。 */
+    var kids = plan.mode === 'slide' ? [] : sheetContentIn(panel, D, plan.mode === 'fly');
+
+    st.anim = panelAnim;
+    var all = [panelAnim.finished].concat(flyMetas.map(function (a) { return a.finished; }),
+                                          kids.map(function (k) { return k.finished; }));
+    return Promise.all(all).then(function () {
       if (gen !== st.gen) return;
       panel.style.opacity = ''; panel.style.transform = '';
-      try { a.cancel(); } catch (e) {}
+      try { panelAnim.cancel(); } catch (e) {}
+      flyMetas.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      sheetFlyKill(st);
+      kids.forEach(function (k) { try { k.cancel(); } catch (e) {} });
+      if (scrimAnim) { try { scrimAnim.cancel(); } catch (e) {} }
       st.anim = null;
     }).catch(function () {});
   }
@@ -665,16 +850,76 @@
     var gen = st.gen;
     var D = dur(opts.duration || 'base');
     if (!D) { if (opts.onDone) opts.onDone(); return Promise.resolve(); }
-    var to = sheetTransform(panel, st.anchorRect, false);
-    var a = panel.animate([
-      { opacity: 1, transform: 'translate(0,0) scale(1)' },
-      { opacity: to.opacity, transform: to.transform }
-    ], { duration: D * BACK, easing: EASE, fill: 'forwards' });
-    st.anim = a;
-    return a.finished.then(function () {
+    var plan = sheetPlan(panel, st.anchorRect, false);
+    var OUT = D * BACK;
+
+    /* 内容先退：比几何快得多，文字不会跟着被压扁。
+       这是 demo closeApp 里 appEl.animate(opacity 1→0, D*0.38) 的同一手法。
+       注意这里不能用 sheetContentIn —— 那是「进场」方向，会在收回时反向错峰浮现。 */
+    sheetContentKill(panel);
+    var kidsOut = plan.mode === 'slide' ? [] : Array.prototype.slice.call(panel.children).map(function (k) {
+      return k.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: Math.max(1, Math.round(OUT * 0.38)), easing: EASE_INOUT, fill: 'forwards'
+      });
+    });
+
+    var scrim = panel.parentNode;
+    var scrimAnim = sheetScrim(scrim, OUT, false);
+    var shell = sheetShell(panel);
+    var panelAnim;
+    var flyMetas = [];
+
+    if (plan.mode === 'fly') {
+      var pr = plan.rect;
+      /* 收回是进场的逆序：壳**先**出现（本体仍在原位），壳缩回入口，本体跟着化掉。
+         比本体直接缩回入口可靠：本体缩回入口会被压成 193×59 的竖条 —— 文字全毁。 */
+      panel.style.opacity = '0';
+      var fly = sheetFlyMake(pr, shell, shell.radius);
+      st.fly = fly;
+      var flyGeo = fly.animate([
+        { left: pr.left + 'px', top: pr.top + 'px',
+          width: pr.width + 'px', height: pr.height + 'px', borderRadius: shell.radius },
+        { left: st.anchorRect.left + 'px', top: st.anchorRect.top + 'px',
+          width: st.anchorRect.width + 'px', height: st.anchorRect.height + 'px',
+          borderRadius: Math.min(8, st.anchorRect.height / 2) + 'px' }
+      ], { duration: OUT, easing: EASE, fill: 'forwards' });
+      /* 壳入场：开头一小段就显形，接住正在化掉的本体。
+         同样用绝对时间，避免缓动把「立刻出现」推到别处。 */
+      var flyFade = fly.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: Math.max(1, Math.round(OUT * 0.16)),
+        easing: EASE_OUT, fill: 'forwards'
+      });
+      flyMetas = [flyGeo, flyFade];
+
+      /* 本体：即刻开始化掉（内容已在 0.38×OUT 内退干净，化的是空壳）。
+         时长比壳显形稍长，两者交叠。 */
+      panelAnim = panel.animate([
+        { opacity: 1, transform: 'scale(1)' },
+        { opacity: 0, transform: 'scale(1.02)' }
+      ], {
+        duration: Math.max(1, Math.round(OUT * 0.22)),
+        easing: EASE_INOUT, fill: 'forwards'
+      });
+    } else {
+      panelAnim = panel.animate([
+        { opacity: 1, transform: 'translate(0,0) scale(1)' },
+        { opacity: plan.opacity, transform: plan.transform }
+      ], { duration: OUT, easing: EASE, fill: 'forwards' });
+    }
+
+    st.anim = panelAnim;
+    var all = [panelAnim.finished].concat(flyMetas.map(function (a) { return a.finished; }));
+    return Promise.all(all).then(function () {
       if (gen !== st.gen) return;
       panel.style.opacity = ''; panel.style.transform = '';
-      try { a.cancel(); } catch (e) {}
+      try { panelAnim.cancel(); } catch (e) {}
+      flyMetas.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      sheetFlyKill(st);
+      kidsOut.forEach(function (k) { try { k.cancel(); } catch (e) {} });
+      Array.prototype.slice.call(panel.children).forEach(function (k) {
+        k.style.opacity = ''; k.style.transform = '';
+      });
+      if (scrimAnim) { try { scrimAnim.cancel(); } catch (e) {} }
       st.anim = null;
       if (opts.onDone) opts.onDone();
     }).catch(function () {});
